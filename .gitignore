@@ -37,7 +37,9 @@ rsconnect/
 .Rproj.user
 
 # result figures
-figures
+figures/
+data/
 *.pdf
 *.png
 *.jpg
+*.xlsx
