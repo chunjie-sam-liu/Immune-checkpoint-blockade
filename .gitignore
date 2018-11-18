@@ -38,8 +38,7 @@ rsconnect/
 
 # result figures
 figures/
-data/
+
 *.pdf
 *.png
 *.jpg
-*.xlsx

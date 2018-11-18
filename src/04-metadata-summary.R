@@ -6,7 +6,7 @@ library(ggplot2)
 library(ggalluvial)
 
 
-# analysis ----------------------------------------------------------------
+# public data -------------------------------------------------------------
 
 public_metadata <- readxl::read_xlsx(path = 'data/02-metadata-verified-cj.xlsx', sheet = 1)
 
@@ -26,7 +26,7 @@ public_metadata %>%
   dplyr::mutate(ct_str = glue::glue('{`Cancer type`} ({n})')) %>% 
   dplyr::arrange(n) %>% 
   dplyr::select(-n) %>% 
-  dplyr::mutate(ct_str = stringr::str_to_title(ct_str)) ->
+  dplyr::mutate(ct_str = ifelse(`Cancer type` == 'NSCLC', ct_str, stringr::str_to_title(ct_str))) ->
   ct_str
 
 public_metadata %>% 
@@ -79,10 +79,16 @@ public_metadata %>%
   plot_data_summary
   
 ggsave(
-  filename = '01-phase1-data-summary.pdf',
+  filename = '01-phase1-pulic-data-summary.pdf',
   plot = plot_data_summary,
   device = 'pdf',
   path = 'figures',
   width = 6,
   height = 6.8
 )
+
+
+
+# dbGaP medadata ----------------------------------------------------------
+
+
