@@ -36,4 +36,9 @@ vignettes/*.pdf
 rsconnect/
 .Rproj.user
 
-data/
+# result figures
+figures/
+
+*.pdf
+*.png
+*.jpg
