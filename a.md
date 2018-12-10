@@ -32,16 +32,36 @@ relationship=rbind(relationship1,relationship2)
 write.table(relationship,"/data/liull/immune-checkpoint-blockade/RNA_seq_pipeline_gtf_relationship.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 
 
-assem_count_files %>%
-  head(1) %>%
+all_expression=matrix(NA)
+colnames(all_expression)="gene_id"
+#
+for (i in 1:length(assem_count_files)) {
+assem_count_files[i] %>%
   read_tsv(col_names = TRUE) %>%
   as.data.frame() -> reads_file
-  ID=grep("_mRNA",reads_file$accession)    
-  mRNA_reads_file=reads_file[ID,]
-      
-      
-      
-      
-      
-       
+
+#filter the transcript id ended with "_mRNA" and delete the "_mRNA"
+ID=grep("_mRNA",reads_file$accession)    
+mRNA_reads_file=reads_file[ID,]
+as.vector(sapply(mRNA_reads_file$accession,function(x) unlist(strsplit(x,"_"))[1])) ->transcript_ID    
+mRNA_reads_file$accession = transcript_ID
+#compute the all count number
+dplyr::mutate(mRNA_reads_file,all_count=tag_count_Forward+tag_count_Reverse) -> mRNA_reads_file
+
+#add the ensembl gene id 
+expression=merge(mRNA_reads_file,relationship,by.x="accession",by.y="transcript_ID")
+
+##the same one gene's count value added ,result in a new file only with gene id and count number
+expression2=as.data.frame(tapply(expression$all_count,factor(expression$gene_ID),sum))      
+expression2=cbind(row.names(expression2), expression2)
+row.names(expression2)=NULL 
+name=strsplit(strsplit(assem_count_files[i],"/")[[1]][14],"_")[[1]][1]
+colnames(expression2)=c("gene_id",name)      
+
+#merge with others
+all_expression=merge(all_expression,expression2,by="gene_id",all=T)
+
+}
+write.table(all_expression,"/data/liull/immune-checkpoint-blockade/expression/all_count_expression.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+
  

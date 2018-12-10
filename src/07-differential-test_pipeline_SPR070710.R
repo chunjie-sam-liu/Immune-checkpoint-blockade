@@ -17,6 +17,8 @@ dplyr::filter(metadata,Response=="PD") ->non_response
 #select response and non_response
 
 expression_files = read.table("/data/liull/immune-checkpoint-blockade/expression/all_expression.txt",sep="\t",header = T,as.is = TRUE) ->data1
+#expression_files = read.table("/data/liull/immune-checkpoint-blockade/expression/all_count_expression.txt",sep="\t",header = T,as.is = TRUE) ->data1
+#data1=data1[-dim(data1)[1],]
 rownames(data1)=data1[,1]
 data1=data1[,-1]
 
