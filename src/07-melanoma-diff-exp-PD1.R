@@ -75,7 +75,7 @@ response_Mean=apply(all_expression,1,function(x) mean(x[1:nrow(response)]))
 non_response_Mean=apply(all_expression,1,function(x) mean(x[(nrow(response)+1):length(all_expression)]))
 FC=apply(all_expression,1,function(x) (mean(x[1:nrow(response)])+0.01)/(mean(x[(nrow(response)+1):length(all_expression)])+0.01))
 p_value=apply(all_expression,1,function(x) t.test(x[1:nrow(response)],x[(nrow(response)+1):length(all_expression)])$p.value)
-result=as.data.frame(cbind(response_Mean,non_response_Mean,FC,p_value))
+result=as.data.frame(cbind(all_expression,response_Mean,non_response_Mean,FC,p_value))
 
 result=cbind(rownames(result),result)
 rownames(result)=NULL
