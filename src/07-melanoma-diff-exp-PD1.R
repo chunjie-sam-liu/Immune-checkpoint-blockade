@@ -1,4 +1,3 @@
-library(NOISeq)
 library(magrittr)
 library(readr)
 library(readxl)
@@ -39,6 +38,7 @@ dplyr::filter(metadata,SRA_Study==Project[2]) %>%
   as.character()->Project2_id
 dplyr::select(data1,Project2_id) ->Project2_expression
 expression1=cbind(Project1_expression,Project2_expression)
+#order the expression profile by project to remove batch effect
 
 
 Sum_NA=apply(expression1,1,function(x) sum(is.na(x)))
@@ -69,6 +69,7 @@ combat_edata = ComBat(dat=expression3, batch=batch, mod=NULL, par.prior=TRUE, pr
 dplyr::select(as.data.frame(combat_edata),non_response$Run) ->non_response_expression
 dplyr::select(as.data.frame(combat_edata),response$Run) ->response_expression
 all_expression=cbind(response_expression,non_response_expression)
+#orderthe expression profile by response and nonresponse to t.test
 
 response_Mean=apply(all_expression,1,function(x) mean(x[1:nrow(response)]))
 non_response_Mean=apply(all_expression,1,function(x) mean(x[(nrow(response)+1):length(all_expression)]))
