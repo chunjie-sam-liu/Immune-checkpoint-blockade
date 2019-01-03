@@ -2,36 +2,29 @@ library(clusterProfiler)
 library(org.Hs.eg.db)
 library(GSVA)
 library(readxl)
+library(magrittr)
 
 read.table("/data/liull/immune-checkpoint-blockade/different_expression/melanoma/all_values.txt",sep="\t",header = T,as.is = TRUE) ->all_exp_data
 read.table("/data/liull/immune-checkpoint-blockade/different_expression/melanoma/up_gene_list.txt",sep="\t",header = T,as.is = TRUE) ->up_list
 read.table("/data/liull/immune-checkpoint-blockade/different_expression/melanoma/down_gene_list.txt",sep="\t",header = T,as.is = TRUE) ->down_list
 
 
-#up regulated gene GO enrichment
+#get up and down gene's GO enrichment genes(no cutoff)--------------------------------------------------------------------
 bitr(up_list$Gene.name,fromType="SYMBOL",toType=c("ENTREZID"),OrgDb="org.Hs.eg.db") %>%
   merge(up_list,.,by.x="Gene.name",by.y="SYMBOL",all=T) ->trans_up_list #Genename  GeneEnsemblID  ENTREZID
-
-
 enrichGO(gene = trans_up_list$ENTREZID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 1,qvalueCutoff = 1,readable = TRUE) %>%
   as.data.frame() -> up_go_ALL
-
 GO_up_gene_list=sapply(up_go_ALL$geneID, function(x) strsplit(x,"[/]"))
-#get all of the gene set as list form(no enrichment cutoff)
 
 
-#down regulated gene GO enrichment
 bitr(down_list$Gene.name,fromType="SYMBOL",toType=c("ENTREZID"),OrgDb="org.Hs.eg.db") %>%
   merge(down_list,.,by.x="Gene.name",by.y="SYMBOL",all=T) ->trans_down_list #Genename  GeneEnsemblID  ENTREZID
-
 enrichGO(gene = trans_down_list$ENTREZID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 1,qvalueCutoff = 1,readable = TRUE) %>%
   as.data.frame() -> down_go_ALL
-
-
 GO_down_gene_list=sapply(down_go_ALL$geneID, function(x) strsplit(x,"[/]"))
-#get all of the gene set(no enrichment cutoff)
 
 
+#load expression profile-----------------------------------------------------------------------------------
 expression=all_exp_data[,-((ncol(all_exp_data)-3):ncol(all_exp_data))]
 
 read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",header = T,as.is = TRUE,sep="\t") -> relationship
@@ -41,7 +34,7 @@ merge(relationship[,2:3],expression_1,by.x="EnsemblId",by.y="ensembl_ID") -> exp
 rownames(expression_2)=expression_2[,2]
 expression_2=expression_2[,-c(1,2)]
 
-
+#get gene sets' GSVA score,and the response and non response's mean score,t test p value------------------------- 
 gsva(as.matrix(expression_2), GO_up_gene_list, mx.diff=FALSE, verbose=FALSE, parallel.sz=1) %>% 
   unique() -> up_gsva
 gsva(as.matrix(expression_2), GO_down_gene_list, mx.diff=FALSE, verbose=FALSE, parallel.sz=1) %>%
@@ -68,7 +61,7 @@ non_response_Mean_up=apply(ordered_up_gsva,1,function(x) mean(x[(ncol(up_respons
 FC_up=apply(ordered_up_gsva,1,function(x) (mean(x[1:ncol(up_response_gsva)])+0.01)/(mean(x[(ncol(up_response_gsva)+1):length(ordered_up_gsva)])+0.01))
 p_value_up=apply(ordered_up_gsva,1,function(x) t.test(x[1:ncol(up_response_gsva)],x[(ncol(up_response_gsva)+1):length(ordered_up_gsva)])$p.value)
 result_up=as.data.frame(cbind(ordered_up_gsva,response_Mean_up,non_response_Mean_up,FC_up,p_value_up))
-
+write.table(result_up,"/data/liull/immune-checkpoint-blockade/enrichment/melanoma/PD1_up_gene_enrichment.txt",quote = FALSE,sep="\t",row.names = TRUE,col.names = TRUE)
 
 dplyr::select(as.data.frame(down_gsva),response_ids) ->down_response_gsva
 dplyr::select(as.data.frame(down_gsva),non_response_ids) ->down_non_response_gsva
@@ -79,3 +72,12 @@ non_response_Mean_down=apply(ordered_down_gsva,1,function(x) mean(x[(ncol(down_r
 FC_down=apply(ordered_down_gsva,1,function(x) (mean(x[1:ncol(down_response_gsva)])+0.01)/(mean(x[(ncol(down_response_gsva)+1):length(ordered_down_gsva)])+0.01))
 p_value_down=apply(ordered_down_gsva,1,function(x) t.test(x[1:ncol(down_response_gsva)],x[(ncol(down_response_gsva)+1):length(ordered_down_gsva)])$p.value)
 result_down=as.data.frame(cbind(ordered_down_gsva,response_Mean_down,non_response_Mean_down,FC_down,p_value_down))
+write.table(result_down,"/data/liull/immune-checkpoint-blockade/enrichment/melanoma/PD1_down_gene_enrichment.txt",quote = FALSE,sep="\t",row.names = TRUE,col.names = TRUE)
+
+#filter and normalization---------------------------------------------------------------------------------
+result_up <- cbind(rownames(result_up),result_up)
+dplyr::filter(result_up,p_value_up<=0.05) %>%
+  dplyr::select(1:(ncol(result_up)-4)) -> filtered_up_gene_sets
+rownames(filtered_up_gene_sets)=filtered_up_gene_sets[,1]
+filtered_up_gene_sets[,2:ncol(filtered_up_gene_sets)] %>%
+  apply(1,function(x) scale(x, center = TRUE, scale = TRUE)) ->a
