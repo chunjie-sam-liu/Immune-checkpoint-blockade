@@ -80,4 +80,14 @@ dplyr::filter(result_up,p_value_up<=0.05) %>%
   dplyr::select(1:(ncol(result_up)-4)) -> filtered_up_gene_sets
 rownames(filtered_up_gene_sets)=filtered_up_gene_sets[,1]
 filtered_up_gene_sets[,2:ncol(filtered_up_gene_sets)] %>%
-  apply(1,function(x) scale(x, center = TRUE, scale = TRUE)) ->a
+  scale(center = TRUE, scale = TRUE) %>%
+  mean() -> mean_zscore_up
+
+result_down <- cbind(rownames(result_down),result_down)
+dplyr::filter(result_down,p_value_down<=0.05) %>%
+  dplyr::select(1:(ncol(result_down)-4)) -> filtered_down_gene_sets
+rownames(filtered_down_gene_sets)=filtered_down_gene_sets[,1]
+filtered_down_gene_sets[,2:ncol(filtered_down_gene_sets)] %>%
+  scale(center = TRUE, scale = TRUE) %>%
+  mean() -> mean_zscore_down
+
