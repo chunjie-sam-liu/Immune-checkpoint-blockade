@@ -15,6 +15,7 @@ import scipy.stats as stats
 import xlrd
 import matplotlib.pyplot as plt 
 import seaborn as sns
+import numpy as np
 
 c_t=['CD4_naive', 'CD8_naive', 'Cytotoxic', 'Exhausted', 'Tr1',
        'nTreg', 'iTreg', 'Th1', 'Th2', 'Th17', 'Tfh', 'Central_memory',
@@ -49,10 +50,12 @@ def get_sorted_patients():
     get_metastatic_gastric_cancer_PR=Filter['metastatic gastric cancer ','partial response']
     get_metastatic_gastric_cancer_PD=Filter['metastatic gastric cancer ','progressive disease']
     get_metastatic_gastric_cancer_SD=Filter['metastatic gastric cancer ','stable disease']
+
     metastatic_melanoma_R=pd.concat([get_metastatic_melanoma_CR,get_metastatic_melanoma_PR])
-    metastatic_gastric_cancer_R=pd.concat([get_metastatic_gastric_cancer_CR,get_metastatic_gastric_cancer_PR,get_metastatic_gastric_cancer_SD])
+    metastatic_gastric_cancer_R=pd.concat([get_metastatic_gastric_cancer_CR,get_metastatic_gastric_cancer_PR])
+    metastatic_gastric_cancer_NR=pd.concat([get_metastatic_gastric_cancer_PD,get_metastatic_gastric_cancer_SD])
     
-    return(metastatic_melanoma_R,get_metastatic_melanoma_PD,metastatic_gastric_cancer_R,get_metastatic_gastric_cancer_PD)
+    return(metastatic_melanoma_R,get_metastatic_melanoma_PD,metastatic_gastric_cancer_R,metastatic_gastric_cancer_NR)  
 
 
 def join_TILs_Patients_Info():
@@ -110,24 +113,22 @@ def caculate_mannwhitneyu_pval():
     
     
 def draw_boxplot():
-    mm_pval,mgc_pval=caculate_mannwhitneyu_pval()
-    mm_order=dict(zip(c_t,mm_pval))
-    mgc_order=dict(zip(c_t,mgc_pval))
-    mm_order=sorted(mm_order.items(),key = lambda x:x[1])
-    mgc_order=sorted(mgc_order.items(),key = lambda x:x[1])
-    mm_order_sorted=[]
-    mgc_order_sorted=[]
-    for i in range(24):
-        mm_order_sorted.append(mm_order[i][0])
-    for i in range(24):
-        mgc_order_sorted.append(mgc_order[i][0])
-    
-    path='../data/mm_boxplot.xlsx' #mgc
+    f,ax = plt.subplots(figsize=(15,12))
+    f.subplots_adjust(left=0.05,right=0.90,bottom=0.20
+        ,top=0.90,wspace=0.2,hspace=0.2 )
+    (mm_order_sorted,mgc_order_sorted)=Order_sorted()
+    path='../data/mgc_boxplot.xlsx' #mgc
     excel=pd.ExcelFile(path)
-    mm=pd.read_excel(excel) #mgc
+    mgc=pd.read_excel(excel) #mgc
     plt.xticks(rotation=60)
-    ax=sns.boxplot(x="cell_type", y="amount", hue="response_type",data=mm, palette="Set3",
-    order=mm_order_sorted,fliersize=0) #data=mgc
+
+
+    sns.boxplot(x="cell_type", y="amount", hue="response_type",data=mgc, palette="Set3",
+    order=mgc_order_sorted,fliersize=0,ax=ax) #data=mgc
+    pos = np.arange(23) + 1
+    top=50
+    
+    ax.text(x=0, y=0.8, s='fdxf')
 
     plt.show()
 
@@ -161,11 +162,35 @@ def data_pre_boxplot():
     mgc_join=pd.concat([g3,g4])
     mm_join.to_excel('../data/mm_boxplot.xlsx')
     mgc_join.to_excel('../data/mgc_boxplot.xlsx')
-    
 
+def Order_sorted():
+    mm_or_tmp=[]
+    mgc_or_tmp=[]
+    for i in range(26):
+        if i==0 or i==1:
+            continue
+        (g1,g2,g3,g4)=read_excel(i)
+        m1=np.median(np.array(g1))
+        m2=np.median(np.array(g2))
+        m3=np.median(np.array(g3))
+        m4=np.median(np.array(g4))
+        mm_or_tmp.append((m1+m2)/2)
+        mgc_or_tmp.append((m3+m4)/2)
+    mm_order=dict(zip(c_t,mm_or_tmp))
+    mgc_order=dict(zip(c_t,mgc_or_tmp))
+    mm_order=sorted(mm_order.items(),key = lambda x:x[1])
+    mgc_order=sorted(mgc_order.items(),key = lambda x:x[1])
+    
+    mm_order_sorted=[]
+    mgc_order_sorted=[]
+    for i in range(24):
+        mm_order_sorted.append(mm_order[i][0])
+    for i in range(24):
+        mgc_order_sorted.append(mgc_order[i][0])
+    return(mm_order_sorted,mgc_order_sorted)
 
 def main():
-    pass
+    draw_boxplot()
 
 if __name__ == '__main__':
     main()
