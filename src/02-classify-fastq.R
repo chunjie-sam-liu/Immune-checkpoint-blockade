@@ -37,3 +37,13 @@ path_projects %>%
       if (length(.fastq_wes) != 0) system(glue::glue("cd {.x} && mv {paste(.fastq_wes, '*', sep = '', collapse = ' ')} {.path_wes}"))
     }
   )
+
+
+# phase 2 metadata --------------------------------------------------------
+
+metadata <- readxl::read_xlsx(path = "data/04-all-metadata.xlsx", sheet = 'dbGAP') %>% 
+  dplyr::select(lib = Library_strategy, run = `Run`)
+
+proj_names <- c('SRP064805_fastq', 'SRP072934_fastq', 'SRP154918_fastq')
+
+
