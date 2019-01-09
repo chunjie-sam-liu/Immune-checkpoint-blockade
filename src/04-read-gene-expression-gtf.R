@@ -80,5 +80,5 @@ all_rna_expression=merge(all_rna_expression,all_expression,by="gene_id",all=T)
 
 }
 
-write.table(all_rna_expression[1:(dim(all_rna_expression)[1]-1),],"/data/liull/immune-checkpoint-blockade/expression/all_expression.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+write.table(all_rna_expression[1:(dim(all_rna_expression)[1]-1),],"/data/liull/immune-checkpoint-blockade/expression/all_FPKM_expression.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 
