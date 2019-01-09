@@ -53,7 +53,8 @@ result=as.data.frame(cbind(ordered_GSVA,response_Mean,non_response_Mean,FC,p_val
 cbind(rownames(result),result) %>%
   dplyr::filter(p_value<=0.01) -> sig_sets
 
-
-
+rownames(sig_sets) = sig_sets[,1]
+dplyr::select(sig_sets,2:(ncol(sig_sets)-4)) %>%
+  apply(1,function(x) mean(x)) -> 
 
 
