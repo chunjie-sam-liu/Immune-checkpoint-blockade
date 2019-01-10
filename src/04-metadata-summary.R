@@ -78,7 +78,11 @@ public_metadata %>%
     )
   ) ->
   plot_public_data_summary
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> 731db04062beacc311a9a8cc2ca25d6bc5de0c12
 ggsave(
   filename = '01-phase1-pulic-data-summary.pdf',
   plot = plot_public_data_summary,
@@ -93,6 +97,7 @@ ggsave(
 # dbGaP medadata ----------------------------------------------------------
 
 dbgap_metadata <- readxl::read_xlsx(path = 'data/03-dbGAP-matedata-cj.xlsx', sheet = 1)
+<<<<<<< HEAD
 
 dbgap_metadata %>% 
   dplyr::group_by(Second_accession) %>% 
@@ -127,6 +132,42 @@ dbgap_metadata %>%
   ant
 
 dbgap_metadata %>% 
+=======
+
+dbgap_metadata %>% 
+  dplyr::group_by(Second_accession) %>% 
+  dplyr::count() %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(acc = glue::glue('{Second_accession} ({n})')) %>% 
+  dplyr::select(-n) ->
+  acc
+
+dbgap_metadata %>% 
+  dplyr::group_by(Cancer) %>% 
+  dplyr::count() %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(cc = glue::glue('{Cancer} ({n})')) %>% 
+  dplyr::select(-n) ->
+  cc
+
+dbgap_metadata %>% 
+  dplyr::group_by(Library_strategy) %>% 
+  dplyr::count() %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(lib = glue::glue('{Library_strategy} ({n})')) %>% 
+  dplyr::select(-n) ->
+  lib
+
+dbgap_metadata %>% 
+  dplyr::group_by(`anti-target`) %>% 
+  dplyr::count() %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(ant = glue::glue('{`anti-target`} ({n})')) %>% 
+  dplyr::select(-n) ->
+  ant
+
+dbgap_metadata %>% 
+>>>>>>> 731db04062beacc311a9a8cc2ca25d6bc5de0c12
   dplyr::group_by(Second_accession, Cancer, `anti-target`, Library_strategy) %>% 
   dplyr::count() %>% 
   dplyr::ungroup() %>% 
@@ -168,3 +209,7 @@ ggsave(
   width = 6,
   height = 6.8
 )
+<<<<<<< HEAD
+=======
+  
+>>>>>>> 731db04062beacc311a9a8cc2ca25d6bc5de0c12
