@@ -5,8 +5,8 @@ library(ggplot2)
 library(ggalluvial)
 
 
-public_metadata <- readxl::read_xlsx(path = '/data/liucj/data/immune-checkpoint-blockade/all_metadata_available.xlsx', sheet = "SRA")
-dbgap_metadata <- readxl::read_xlsx(path =  '/data/liucj/data/immune-checkpoint-blockade/all_metadata_available.xlsx', sheet = "dbGAP")
+public_metadata <- readxl::read_xlsx(path = '/data/liull/immune-checkpoint-blockade/all_metadata_available_picture.xlsx', sheet = "SRA")
+dbgap_metadata <- readxl::read_xlsx(path =  '/data/liull/immune-checkpoint-blockade/all_metadata_available_picture.xlsx', sheet = "dbGAP")
 
 # RNA-seq data -------------------------------------------------------------
 rbind(public_metadata,dbgap_metadata) %>%
@@ -94,7 +94,7 @@ ggsave(
 
 # WES_WGS medadata ----------------------------------------------------------
 rbind(public_metadata,dbgap_metadata) %>%
-  dplyr::filter(Library_strategy %in% c("WES","WXS","WGS")) -> WES_WGS_metadata
+  dplyr::filter(Library_strategy %in% c("WES","WGS")) -> WES_WGS_metadata
 
 
 WES_WGS_metadata %>% 
