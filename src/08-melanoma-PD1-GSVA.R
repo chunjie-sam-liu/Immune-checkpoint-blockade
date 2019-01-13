@@ -6,6 +6,10 @@ library(GSEABase)
 #load gene set,metadata and gene symbol,ensenml,entrezID relationship---------------------------------------
 file_path = "/data/liucj/project/06-autophagy/GSEA/GSEA-collections-gmt"
 genesets <- getGmt(paste(file_path,"C2_CURATED.gmt",sep="/"))
+
+C6_ONCOGENIC_SIGNATURES.gmt
+C7_IMMUNOLOGIC_SIGNATURES.gmt
+
 readxl::read_excel("/data/liull/immune-checkpoint-blockade/04-all-metadata.xlsx",col_names = TRUE,sheet="SRA") ->metadata 
 read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",header = T,as.is = TRUE,sep="\t") -> relationship
 
@@ -38,15 +42,15 @@ m=ncol(SRP070710_response_gsva)
 n=ncol(SRP070710_ordered_GSVA)
 SRP070710_avg_R=apply(SRP070710_ordered_GSVA,1,function(x) median(x[1:m]))
 SRP070710_avg_NR=apply(SRP070710_ordered_GSVA,1,function(x) median(x[(m+1):n]))
-SRP070710_difference=apply(SRP070710_ordered_GSVA,1,function(x) abs((median(x[1:m])-median(x[(m+1):n]))/median(x[(m+1):n])))
+SRP070710_diffAvg=apply(SRP070710_ordered_GSVA,1,function(x) abs((median(x[1:m])-median(x[(m+1):n]))/median(x[(m+1):n])))
 SRP070710_p_value=apply(SRP070710_ordered_GSVA,1,function(x) t.test(x[1:m],x[(m+1):n])$p.value)
 SRP070710_adj_p=p.adjust(SRP070710_p_value, "fdr")
-SRP070710_result=as.data.frame(cbind(SRP070710_ordered_GSVA,SRP070710_difference,SRP070710_p_value,SRP070710_adj_p))
+SRP070710_result=as.data.frame(cbind(SRP070710_ordered_GSVA,SRP070710_avg_R,SRP070710_avg_NR,SRP070710_diffAvg,SRP070710_p_value,SRP070710_adj_p))
 
 cbind(rownames(SRP070710_result),SRP070710_result) %>%
-  dplyr::filter(SRP070710_difference>=0.1) %>%
+  dplyr::filter(SRP070710_diffAvg>=0.1) %>%
   dplyr::filter(SRP070710_p_value<=0.1)-> SRP070710_sig_sets
-heatmap(as.matrix(SRP070710_sig_sets[,-c(1,30,31,32)]))
+heatmap(as.matrix(SRP070710_sig_sets[,-c(1,30,31,32,33,34)]),hclustfun = hclust,Colv=NA,col=topo.colors(100))
 
 
 
