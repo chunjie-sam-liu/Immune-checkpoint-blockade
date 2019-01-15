@@ -71,17 +71,34 @@ all_expression=cbind(response_expression,non_response_expression)
 avg.R=apply(all_expression,1,function(x) median(x[1:nrow(response)]))
 avg.NR=apply(all_expression,1,function(x) median(x[(nrow(response)+1):length(all_expression)]))
 diff.avg=apply(all_expression,1,function(x) (median(x[1:nrow(response)])-median(x[(nrow(response)+1):length(all_expression)])))
-p_value=apply(all_expression,1,function(x) t.test(x[1:nrow(response)],x[(nrow(response)+1):length(all_expression)])$p.value)
+p_value=apply(all_expression,1,function(x) wilcox.test(x[1:nrow(response)],x[(nrow(response)+1):length(all_expression)])$p.value)
 result=as.data.frame(cbind(all_expression,avg.R,avg.NR,diff.avg,p_value))
 
+read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",sep="\t",header = T,as.is = TRUE) ->relationship
 result=cbind(rownames(result),result)
-rownames(result)=NULL
 colnames(result)[1]="ensembl_ID"
-result$ensembl_ID <- as.character(result$ensembl_ID)
-
-dplyr::filter(as.data.frame(result),p_value<=0.1) %>%
-  dplyr::filter(diff.avg>=1) -> up
-dplyr::filter(as.data.frame(result),p_value<=0.1) %>%
-  dplyr::filter(diff.avg<=-1) -> down
+merge(relationship,result,by.x="EnsemblId",by.y="ensembl_ID")->result
 write.table(result,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/melanoma_PD1_DEG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 
+#filter significant different gene(same cutoff with the-28-sample-tableS2:0.1 , 1)-------------------------------------
+
+
+dplyr::filter(as.data.frame(result),p_value<=0.1) %>%
+  dplyr::filter(diff.avg>=1) -> up#232
+rownames(up)=up[,2]
+
+dplyr::filter(as.data.frame(result),p_value<=0.1) %>%
+  dplyr::filter(diff.avg<=-1) -> down#699
+rownames(down)=down[,3]
+
+
+#heatmap for down-gene(p<0.01)--------------------------------------------------------------------------------
+dplyr::filter(down,p_value<=0.01) %>%
+  dplyr::filter(diff.avg<=-2)-> down_for_map
+rownames(down_for_map)=down_for_map[,3]
+heatmap(as.matrix(down_for_map[,4:(ncol(down_for_map)-4)]),Colv=NA,ColSideColors=c(rep("purple", 44), rep("orange", 117)),col=colorRampPalette(c("green", "black","red"))(256),cexRow = 0.3,cexCol = 0.2)
+
+write.table(down_for_map,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/down_for_heatmap.txt",sep="\t",quote=FALSE,col.names = TRUE,row.names = FALSE)
+#GO enrich for down-gene---------------------------------------------------------------------------------------
+enrichGO(gene = down_for_map$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 1,qvalueCutoff = 1,readable = TRUE) %>%
+  as.data.frame()->down_for_map_enrich
