@@ -95,22 +95,29 @@ def read_excel(index):
     cols_4=mgc_nr.col_values(index)[1:23]
     
     return(cols_1,cols_2,cols_3,cols_4)
+def read_excel2(index):
+    TILs_R_NR=xlrd.open_workbook('../data/all_tils_pInfo.xlsx')
+    cohort_responding=TILs_R_NR.sheet_by_index(2)
+    cohort_non_responding=TILs_R_NR.sheet_by_index(3)
+    cols_1=cohort_responding.col_values(index)
+    cols_2=cohort_non_responding.col_values(index)
+    del cols_1[0]
+    del cols_2[0]
+    return(cols_1,cols_2)
 
 def get_mannwhitneyu_pval(group1,group2):
-    u_statistic, pVal = stats.mannwhitneyu(group1, group2)
+
+    s, pVal = stats.ranksums(group1, group2) #  
     return(pVal)
 
-def caculate_mannwhitneyu_pval():
-    pval1=[]
-    pval2=[]
+def caculate():
+    pv=[]
     for i in range(26):
         if i==0 or i==1:
             continue
-        (g1,g2,g3,g4)=read_excel(i)
-        pval1.append(get_mannwhitneyu_pval(g1,g2))
-        pval2.append(get_mannwhitneyu_pval(g3,g4))
-    return(pval1,pval2)
-    
+        (g1,g2)=read_excel2(i)
+        pv.append(get_mannwhitneyu_pval(g1,g2))
+    return(pv)
     
 def draw_boxplot():
     f,ax = plt.subplots(figsize=(15,12))
@@ -120,15 +127,19 @@ def draw_boxplot():
     path='../data/mgc_boxplot.xlsx' #mgc
     excel=pd.ExcelFile(path)
     mgc=pd.read_excel(excel) #mgc
+    
     plt.xticks(rotation=60)
 
 
     sns.boxplot(x="cell_type", y="amount", hue="response_type",data=mgc, palette="Set3",
     order=mgc_order_sorted,fliersize=0,ax=ax) #data=mgc
-    pos = np.arange(23) + 1
-    top=50
     
-    ax.text(x=0, y=0.8, s='fdxf')
+    pv=caculate()
+    pvdict=dict(zip(c_t,pv))
+
+    for i in range(24):
+        ax.text(x=i, y=0.9, s='%.3f' % pvdict[mgc_order_sorted[i]],horizontalalignment='center')
+    
 
     plt.show()
 
@@ -190,8 +201,7 @@ def Order_sorted():
     return(mm_order_sorted,mgc_order_sorted)
 
 def main():
-    draw_boxplot()
+    pass
 
 if __name__ == '__main__':
     main()
-
