@@ -10,7 +10,7 @@ genesets <- getGmt(paste(file_path,"C2_CURATED.gmt",sep="/"))
 C6_ONCOGENIC_SIGNATURES.gmt
 C7_IMMUNOLOGIC_SIGNATURES.gmt
 
-readxl::read_excel("/data/liull/immune-checkpoint-blockade/04-all-metadata.xlsx",col_names = TRUE,sheet="SRA") ->metadata 
+readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="SRA") ->metadata 
 read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",header = T,as.is = TRUE,sep="\t") -> relationship
 
 #repeat SRP070710's result--------------------------------------------------------------------------------
@@ -57,18 +57,17 @@ heatmap(as.matrix(SRP070710_sig_sets[,-c(1,30,31,32,33,34)]),hclustfun = hclust,
 
 #load removed batch effect's expression profile--------------------------------------------------------
 
-read.table("/data/liull/immune-checkpoint-blockade/different_expression/melanoma/all_values.txt",sep="\t",header = T,as.is = TRUE) %>% 
-  dplyr::select(.,1:(ncol(.)-4))%>%
+read.table("/data/liull/immune-checkpoint-blockade/different_expression/melanoma/melanoma_PD1_removed_batch_expression.txt",header = T,as.is = TRUE) %>% 
+  cbind(rownames(.),.)->all_expression
+colnames(all_expression)[1]="ensembl_ID"
+all_expression %>%
   dplyr::filter(ensembl_ID %in% relationship$EnsemblId) %>%
   merge(relationship[,2:3],.,by.x="EnsemblId",by.y="ensembl_ID") %>%
   dplyr::select(-EnsemblId)->expression
 rownames(expression) <- expression[,1]
 expression <- expression[,-1] 
 
-
-
 #order response or not
-
 metadata %>%
   dplyr::filter(Library_strategy=="RNA-Seq") %>%
   dplyr::filter(Cancer=="melanoma") %>%
@@ -79,12 +78,9 @@ metadata %>%
 #make GSVA score for all
 GSVA_score <- gsva(data.matrix(expression), genesets, min.sz=1, max.sz=999999, method="zscore",kcdf="Gaussian", abs.ranking=FALSE, verbose=TRUE)
 
-dplyr::filter(melanoma_PD1,Response %in% c("CR","PR","R"))$Run ->response_ids
+dplyr::filter(melanoma_PD1,Response %in% c("CR","PR","R","PRCR"))$Run ->response_ids
 dplyr::filter(melanoma_PD1,Response %in% c("SD","PD","NR"))$Run ->non_response_ids
-
-dplyr::select(as.data.frame(GSVA_score),response_ids) ->response_gsva
-dplyr::select(as.data.frame(GSVA_score),non_response_ids) ->non_response_gsva
-ordered_GSVA=cbind(response_gsva,non_response_gsva)
+dplyr::select(as.data.frame(GSVA_score),response_ids,non_response_ids) ->ordered_GSVA
 
 #IDs=as.vector(NULL)
 #for (i in 1:nrow(ordered_GSVA)) {
@@ -93,16 +89,19 @@ ordered_GSVA=cbind(response_gsva,non_response_gsva)
 #}
 #ordered_GSVA=ordered_GSVA[-IDs,]#delete the gene sets hava too many NA expression's gene
 
-response_Mean=apply(ordered_GSVA,1,function(x) mean(x[1:length(response_ids)]))
-non_response_Mean=apply(ordered_GSVA,1,function(x) mean(x[(length(response_ids)+1):nrow(melanoma_PD1)]))
-FC=apply(ordered_GSVA,1,function(x) (mean(x[1:length(response_ids)])+0.01)/(mean(x[(length(response_ids)+1):nrow(melanoma_PD1)])+0.01))
-p_value=apply(ordered_GSVA,1,function(x) t.test(x[1:length(response_ids)],x[(length(response_ids)+1):nrow(melanoma_PD1)])$p.value)
-result=as.data.frame(cbind(ordered_GSVA,response_Mean,non_response_Mean,FC,p_value))
+avg.R=apply(ordered_GSVA,1,function(x) median(x[1:length(response_ids)]))
+avg.NR=apply(ordered_GSVA,1,function(x) median(x[(length(response_ids)+1):ncol(ordered_GSVA)]))
+diff.avg=apply(ordered_GSVA,1,function(x) (median(x[1:length(response_ids)])-median(x[(length(response_ids)+1):ncol(ordered_GSVA)])))
+p_value=apply(ordered_GSVA,1,function(x) t.test(x[1:length(response_ids)],x[(length(response_ids)+1):ncol(ordered_GSVA)])$p.value)
+result=as.data.frame(cbind(ordered_GSVA,avg.R,avg.NR,diff.avg,p_value))
 
 cbind(rownames(result),result) %>%
-  dplyr::filter(p_value<=0.01) -> sig_sets
+  dplyr::filter(abs(diff.avg)>=0.1) %>%
+  dplyr::filter(p_value<=0.01)-> sig_sets
+write.table(sig_sets,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/sig_sets.txt",sep="\t",quote=FALSE,col.names = TRUE,row.names = FALSE)
 
 rownames(sig_sets) = sig_sets[,1]
 dplyr::select(sig_sets,2:(ncol(sig_sets)-4))->a
 
-heatmap(as.matrix(a), Rowv=NA, Colv=NA, col=cm.colors(256), revC=FALSE, scale='column')
+
+heatmap(as.matrix(a), Colv=NA,ColSideColors=c(rep("purple", 44), rep("orange", 117)),col=colorRampPalette(c("green", "black","red"))(256),cexRow = 0.5,cexCol = 0.2)
