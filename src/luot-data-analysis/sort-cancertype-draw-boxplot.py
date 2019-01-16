@@ -41,7 +41,7 @@ def get_sorted_patients():
     Filter.to_excel("../data/First_join_metadata_Tils.xlsx")
 
     Filter=Filter[Filter['anti-target']=='anti-PD-1']#筛选出anti-target 为anti-PD-1 的个体由于某些缺乏drug信息，所以以anti-target为准。
-
+    Filter.to_excel("../data/tmp.xlsx")
     Filter = dict(list(Filter.groupby(['Cancer type','response'])))
 
     get_metastatic_melanoma_R=Filter['metastatic melanoma','R']
@@ -103,8 +103,8 @@ def read_excel(index):
 
 def read_excel2(index):
     TILs_R_NR=xlrd.open_workbook('../data/all_tils_pInfo.xlsx')
-    cohort_responding=TILs_R_NR.sheet_by_index(0)
-    cohort_non_responding=TILs_R_NR.sheet_by_index(1)
+    cohort_responding=TILs_R_NR.sheet_by_index(2)#mgc
+    cohort_non_responding=TILs_R_NR.sheet_by_index(3)#mgc
     cols_1=cohort_responding.col_values(index)
     cols_2=cohort_non_responding.col_values(index)
     del cols_1[0]
@@ -131,21 +131,26 @@ def draw_boxplot():
     f.subplots_adjust(left=0.05,right=0.90,bottom=0.20
         ,top=0.90,wspace=0.2,hspace=0.2 )
     (mm_order_sorted,mgc_order_sorted)=Order_sorted()
-    path='../data/mm_boxplot.xlsx' #mgc
+    path='../data/mgc_boxplot.xlsx' #mgc
     excel=pd.ExcelFile(path)
-    mm=pd.read_excel(excel) #mgc
+    mgc=pd.read_excel(excel) #mgc
     
     plt.xticks(rotation=60)
 
 
-    sns.boxplot(x="cell_type", y="amount", hue="response_type",data=mm, palette="Set3",
-    order=mm_order_sorted,fliersize=0,ax=ax) #data=mgc
+    sns.boxplot(x="cell_type", y="amount", hue="response_type",data=mgc, palette="Set3",
+    order=mgc_order_sorted,fliersize=0,ax=ax) #data=mgc
     
     pv=caculate()
     pvdict=dict(zip(c_t,pv))
-
+    colorlist=['black','red']
+    index=0
     for i in range(24):
-        ax.text(x=i, y=0.7, s='%.3f' % pvdict[mm_order_sorted[i]],horizontalalignment='center') #mgc
+        if pvdict[mgc_order_sorted[i]]<0.05:#mgc
+            index=1
+        else:
+            index=0
+        ax.text(x=i, y=0.9, s='%.3f' % pvdict[mgc_order_sorted[i]], color=colorlist[index],horizontalalignment='center') #mgc
     
 
     plt.show()
@@ -208,6 +213,7 @@ def Order_sorted():
     return(mm_order_sorted,mgc_order_sorted)
 
 def main():
+    data_pre_boxplot()
     draw_boxplot()
 
 
