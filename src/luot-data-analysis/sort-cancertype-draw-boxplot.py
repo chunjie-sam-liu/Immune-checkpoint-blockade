@@ -40,9 +40,12 @@ def get_sorted_patients():
     
     Filter.to_excel("../data/First_join_metadata_Tils.xlsx")
 
-    Filter=Filter.dropna(axis=0,subset=['drug'])#过滤掉没有drug信息的样本
+    Filter=Filter[Filter['anti-target']=='anti-PD-1']#筛选出anti-target 为anti-PD-1 的个体由于某些缺乏drug信息，所以以anti-target为准。
+    Filter.to_excel("../data/tmp.xlsx")
     Filter = dict(list(Filter.groupby(['Cancer type','response'])))
 
+    get_metastatic_melanoma_R=Filter['metastatic melanoma','R']
+    get_metastatic_melanoma_NR=Filter['metastatic melanoma','NR']
     get_metastatic_melanoma_CR=Filter['metastatic melanoma','Complete Response']
     get_metastatic_melanoma_PR=Filter['metastatic melanoma','Partial Response']
     get_metastatic_melanoma_PD=Filter['metastatic melanoma','Progressive Disease']
@@ -51,17 +54,19 @@ def get_sorted_patients():
     get_metastatic_gastric_cancer_PD=Filter['metastatic gastric cancer ','progressive disease']
     get_metastatic_gastric_cancer_SD=Filter['metastatic gastric cancer ','stable disease']
 
-    metastatic_melanoma_R=pd.concat([get_metastatic_melanoma_CR,get_metastatic_melanoma_PR])
+    metastatic_melanoma_R=pd.concat([get_metastatic_melanoma_CR,get_metastatic_melanoma_PR,get_metastatic_melanoma_R])
+    metastatic_melanoma_NR=pd.concat([get_metastatic_melanoma_PD,get_metastatic_melanoma_NR])
     metastatic_gastric_cancer_R=pd.concat([get_metastatic_gastric_cancer_CR,get_metastatic_gastric_cancer_PR])
     metastatic_gastric_cancer_NR=pd.concat([get_metastatic_gastric_cancer_PD,get_metastatic_gastric_cancer_SD])
     
-    return(metastatic_melanoma_R,get_metastatic_melanoma_PD,metastatic_gastric_cancer_R,metastatic_gastric_cancer_NR)  
+
+    return(metastatic_melanoma_R,metastatic_melanoma_NR,metastatic_gastric_cancer_R,metastatic_gastric_cancer_NR)  
 
 
 def join_TILs_Patients_Info():
     (metastatic_melanoma_R,metastatic_melanoma_NR,metastatic_gastric_cancer_R,metastatic_gastric_cancer_NR)=get_sorted_patients()
     TILs_Info=get_TILs_Info()
-    
+
     Mm_R_Tils=pd.merge(TILs_Info,metastatic_melanoma_R,left_on='sample',right_on='Run')
     Mm_NR_Tils=pd.merge(TILs_Info,metastatic_melanoma_NR,left_on='sample',right_on='Run')
     Mgc_R_Tils=pd.merge(TILs_Info,metastatic_gastric_cancer_R,left_on='sample',right_on='Run')
@@ -96,21 +101,30 @@ def read_excel(index):
     
     return(cols_1,cols_2,cols_3,cols_4)
 
-def get_mannwhitneyu_pval(group1,group2):
-    u_statistic, pVal = stats.mannwhitneyu(group1, group2)
+def read_excel2(index):
+    TILs_R_NR=xlrd.open_workbook('../data/all_tils_pInfo.xlsx')
+    cohort_responding=TILs_R_NR.sheet_by_index(2)#mgc
+    cohort_non_responding=TILs_R_NR.sheet_by_index(3)#mgc
+    cols_1=cohort_responding.col_values(index)
+    cols_2=cohort_non_responding.col_values(index)
+    del cols_1[0]
+    del cols_2[0]
+    return(cols_1,cols_2)
+
+def get_pval(group1,group2):
+
+    s, pVal = stats.ranksums(group1, group2) #  
     return(pVal)
 
-def caculate_mannwhitneyu_pval():
-    pval1=[]
-    pval2=[]
+def caculate():
+    pv=[]
     for i in range(26):
         if i==0 or i==1:
             continue
-        (g1,g2,g3,g4)=read_excel(i)
-        pval1.append(get_mannwhitneyu_pval(g1,g2))
-        pval2.append(get_mannwhitneyu_pval(g3,g4))
-    return(pval1,pval2)
-    
+        (g1,g2)=read_excel2(i)
+        pv.append(get_pval(g1,g2))
+        
+    return(pv)
     
 def draw_boxplot():
     f,ax = plt.subplots(figsize=(15,12))
@@ -120,15 +134,24 @@ def draw_boxplot():
     path='../data/mgc_boxplot.xlsx' #mgc
     excel=pd.ExcelFile(path)
     mgc=pd.read_excel(excel) #mgc
+    
     plt.xticks(rotation=60)
 
 
     sns.boxplot(x="cell_type", y="amount", hue="response_type",data=mgc, palette="Set3",
     order=mgc_order_sorted,fliersize=0,ax=ax) #data=mgc
-    pos = np.arange(23) + 1
-    top=50
     
-    ax.text(x=0, y=0.8, s='fdxf')
+    pv=caculate()
+    pvdict=dict(zip(c_t,pv))
+    colorlist=['black','red']
+    index=0
+    for i in range(24):
+        if pvdict[mgc_order_sorted[i]]<0.05:#mgc
+            index=1
+        else:
+            index=0
+        ax.text(x=i, y=0.9, s='%.3f' % pvdict[mgc_order_sorted[i]], color=colorlist[index],horizontalalignment='center') #mgc
+    
 
     plt.show()
 
@@ -190,8 +213,9 @@ def Order_sorted():
     return(mm_order_sorted,mgc_order_sorted)
 
 def main():
+    data_pre_boxplot()
     draw_boxplot()
+
 
 if __name__ == '__main__':
     main()
-
