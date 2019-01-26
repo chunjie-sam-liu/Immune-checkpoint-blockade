@@ -102,3 +102,4 @@ write.table(down_for_map,"/data/liull/immune-checkpoint-blockade/different_expre
 #GO enrich for down-gene---------------------------------------------------------------------------------------
 enrichGO(gene = down_for_map$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 1,qvalueCutoff = 1,readable = TRUE) %>%
   as.data.frame()->down_for_map_enrich
+write.table(down_for_map_enrich,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/down_for_heatmap_enrich.txt",sep="\t",quote=FALSE,col.names = TRUE,row.names = FALSE)
