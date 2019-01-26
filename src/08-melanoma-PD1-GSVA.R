@@ -4,8 +4,9 @@ library(magrittr)
 library(GSEABase)
 
 #load gene set,metadata and gene symbol,ensenml,entrezID relationship---------------------------------------
-file_path = "/data/liucj/project/06-autophagy/GSEA/GSEA-collections-gmt"
-genesets <- getGmt(paste(file_path,"C2_CURATED.gmt",sep="/"))
+file_path = "/data/liull/reference/GSEA-gmt"
+genesets1 <- getGmt(paste(file_path,"c2.all.v6.2.symbols.gmt",sep="/"))
+genesets2<- getGmt(paste(file_path,"c7.all.v6.2.symbols.gmt",sep="/"))
 
 C6_ONCOGENIC_SIGNATURES.gmt
 C7_IMMUNOLOGIC_SIGNATURES.gmt
@@ -76,11 +77,13 @@ metadata %>%
 
 
 #make GSVA score for all
-GSVA_score <- gsva(data.matrix(expression), genesets, min.sz=1, max.sz=999999, method="zscore",kcdf="Gaussian", abs.ranking=FALSE, verbose=TRUE)
+GSVA_score1 <- gsva(data.matrix(expression), genesets1, min.sz=1, max.sz=999999, method="zscore",kcdf="Gaussian", abs.ranking=FALSE, verbose=TRUE)
+GSVA_score2 <- gsva(data.matrix(expression), genesets2, min.sz=1, max.sz=999999, method="zscore",kcdf="Gaussian", abs.ranking=FALSE, verbose=TRUE)
 
 dplyr::filter(melanoma_PD1,Response %in% c("CR","PR","R","PRCR"))$Run ->response_ids
 dplyr::filter(melanoma_PD1,Response %in% c("SD","PD","NR"))$Run ->non_response_ids
-dplyr::select(as.data.frame(GSVA_score),response_ids,non_response_ids) ->ordered_GSVA
+
+dplyr::select(as.data.frame(GSVA_score2),response_ids,non_response_ids) ->ordered_GSVA
 
 #IDs=as.vector(NULL)
 #for (i in 1:nrow(ordered_GSVA)) {
@@ -97,7 +100,7 @@ result=as.data.frame(cbind(ordered_GSVA,avg.R,avg.NR,diff.avg,p_value))
 
 cbind(rownames(result),result) %>%
   dplyr::filter(abs(diff.avg)>=0.1) %>%
-  dplyr::filter(p_value<=0.01)-> sig_sets
+  dplyr::filter(p_value<=0.1)-> sig_sets
 write.table(sig_sets,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/sig_sets.txt",sep="\t",quote=FALSE,col.names = TRUE,row.names = FALSE)
 
 rownames(sig_sets) = sig_sets[,1]
@@ -105,3 +108,4 @@ dplyr::select(sig_sets,2:(ncol(sig_sets)-4))->a
 
 
 heatmap(as.matrix(a), Colv=NA,ColSideColors=c(rep("purple", 44), rep("orange", 117)),col=colorRampPalette(c("green", "black","red"))(256),cexRow = 0.5,cexCol = 0.2)
+write.table(sig_sets,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/sig_sets2.txt",sep="\t",quote=FALSE,col.names = TRUE,row.names = FALSE)
