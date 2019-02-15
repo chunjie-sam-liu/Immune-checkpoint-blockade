@@ -62,6 +62,6 @@ colnames(expression2)=c("gene_id",name)
 all_expression=merge(all_expression,expression2,by="gene_id",all=T)
 
 }
-write.table(all_expression,"/data/liull/immune-checkpoint-blockade/expression/all_count_expression.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+write.table(all_expression,"/data/liull/immune-checkpoint-blockade/expression/all_count_expression_2.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 
  
