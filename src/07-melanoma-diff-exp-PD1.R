@@ -12,11 +12,11 @@ readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_availabl
   dplyr::select(SRA_Study,Run,Response) ->metadata
 
 #select response and non_response's sample id and project id
-CR=dplyr::filter(metadata,Response %in% c("CR","PR","PRCR","R")) -> response
-SD=dplyr::filter(metadata,Response %in% c("SD","PD","NR")) -> non_response
+dplyr::filter(metadata,Response %in% c("CR","PR","PRCR","R")) -> response
+dplyr::filter(metadata,Response %in% c("SD","PD","NR")) -> non_response
 
 #expression prepare for batch effect----------------------------------------------------------------------------
-read.table("/data/liull/immune-checkpoint-blockade/expression/all_FPKM_expression.txt",sep="\t",header = T,as.is = TRUE) ->data1
+read.table("/data/liull/immune-checkpoint-blockade/expression/all_FPKM_expression_2.txt",sep="\t",header = T,as.is = TRUE) ->data1
 Project=unique(metadata$SRA_Study)
 dplyr::filter(metadata,SRA_Study==Project[1]) %>%
   dplyr::select(Run)  %>%
@@ -71,35 +71,50 @@ all_expression=cbind(response_expression,non_response_expression)
 avg.R=apply(all_expression,1,function(x) median(x[1:nrow(response)]))
 avg.NR=apply(all_expression,1,function(x) median(x[(nrow(response)+1):length(all_expression)]))
 diff.avg=apply(all_expression,1,function(x) (median(x[1:nrow(response)])-median(x[(nrow(response)+1):length(all_expression)])))
-p_value=apply(all_expression,1,function(x) wilcox.test(x[1:nrow(response)],x[(nrow(response)+1):length(all_expression)])$p.value)
+p_value=apply(all_expression,1,function(x) t.test(x[1:nrow(response)],x[(nrow(response)+1):length(all_expression)])$p.value)
 result=as.data.frame(cbind(all_expression,avg.R,avg.NR,diff.avg,p_value))
 
-read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",sep="\t",header = T,as.is = TRUE) ->relationship
 result=cbind(rownames(result),result)
+rownames(result)=NULL
 colnames(result)[1]="ensembl_ID"
-merge(relationship,result,by.x="EnsemblId",by.y="ensembl_ID")->result
-write.table(result,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/melanoma_PD1_DEG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
-
-#filter significant different gene(same cutoff with the-28-sample-tableS2:0.1 , 1)-------------------------------------
+write.table(result[,c(1,(length(result)-3),(length(result)-2),(length(result)-1),length(result))],"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/melanoma_PD1_DEG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#write all genes' difference
 
 
-dplyr::filter(as.data.frame(result),p_value<=0.1) %>%
-  dplyr::filter(diff.avg>=1) -> up#232
-rownames(up)=up[,2]
+#filter significant different gene-------------------------------------
+dplyr::filter(as.data.frame(result),p_value<=0.05) %>%
+  dplyr::filter(diff.avg>=2) -> up#54
 
-dplyr::filter(as.data.frame(result),p_value<=0.1) %>%
-  dplyr::filter(diff.avg<=-1) -> down#699
-rownames(down)=down[,3]
+dplyr::filter(as.data.frame(result),p_value<=0.05) %>%
+  dplyr::filter(diff.avg<=-2) -> down#199
 
+read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",sep="\t",header = T,as.is = TRUE) ->relationship
+merge(relationship,up,by.x="EnsemblId",by.y="ensembl_ID",all=TRUE)%>%
+  dplyr::filter(EnsemblId %in% up$ensembl_ID) ->up2
+merge(relationship,down,by.x="EnsemblId",by.y="ensembl_ID",all=TRUE)%>%
+  dplyr::filter(EnsemblId %in% down$ensembl_ID) ->down2
+write.table(up2,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/up.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+write.table(down2,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/down.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+
+
+#GO enrich for down-gene---------------------------------------------------------------------------------------
+enrichGO(gene = up2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 0.05,readable = TRUE) %>% as.data.frame() ->up_enrichGO#171
+dim(up_enrichGO)
+enrichGO(gene = down2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 0.05,readable = TRUE) %>% as.data.frame() ->down_enrichGO#58
+dim(down_enrichGO)
+write.table(up_enrichGO,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/up_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+write.table(down_enrichGO,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/down_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+
+#KEGG enrichment
+enrichKEGG(gene=up2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") %>%
+  as.data.frame()->up_enrichKEGG#32
+enrichKEGG(gene=down2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") %>%
+  as.data.frame()->down_enrichKEGG#1
+write.table(up_enrichKEGG,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/up_enrichKEGG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+write.table(down_enrichKEGG,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/down_enrichKEGG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 
 #heatmap for down-gene(p<0.01)--------------------------------------------------------------------------------
-dplyr::filter(down,p_value<=0.01) %>%
-  dplyr::filter(diff.avg<=-2)-> down_for_map
-rownames(down_for_map)=down_for_map[,3]
-heatmap(as.matrix(down_for_map[,4:(ncol(down_for_map)-4)]),Colv=NA,ColSideColors=c(rep("purple", 44), rep("orange", 117)),col=colorRampPalette(c("green", "black","red"))(256),cexRow = 0.3,cexCol = 0.2)
-
-write.table(down_for_map,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/down_for_heatmap.txt",sep="\t",quote=FALSE,col.names = TRUE,row.names = FALSE)
-#GO enrich for down-gene---------------------------------------------------------------------------------------
-enrichGO(gene = down_for_map$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 1,qvalueCutoff = 1,readable = TRUE) %>%
-  as.data.frame()->down_for_map_enrich
-write.table(down_for_map_enrich,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/down_for_heatmap_enrich.txt",sep="\t",quote=FALSE,col.names = TRUE,row.names = FALSE)
+#dplyr::filter(down,p_value<=0.01) %>%
+#  dplyr::filter(diff.avg<=-2)-> down_for_map
+#rownames(down_for_map)=down_for_map[,3]
+#heatmap(as.matrix(down_for_map[,4:(ncol(down_for_map)-4)]),Colv=NA,ColSideColors=c(rep("purple", 44), rep("orange", 117)),col=colorRampPalette(c("green", "black","red"))(256),cexRow = 0.3,cexCol = 0.2)
+#write.table(down_for_map,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/down_for_heatmap.txt",sep="\t",quote=FALSE,col.names = TRUE,row.names = FALSE)

@@ -73,7 +73,7 @@ enrichGO(gene = down2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "B
 write.table(up_enrichGO,"/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer/up_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 write.table(down_enrichGO,"/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer/down_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 
-
+#draw a map for most 10 significant enriched
 down_enrichGO=down_enrichGO[order(down_enrichGO$p.adjust),]
 go_enrich_df<- data.frame(GO=down_enrichGO$Description,p.adjust=down_enrichGO$p.adjust)[1:10,]
 
@@ -88,6 +88,7 @@ ggsave(
   width = 8,
   height = 6.8
 )
+
 #KEGG enrichment
 enrichKEGG(gene=up2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") %>%
   as.data.frame()->up_enrichKEGG#0
