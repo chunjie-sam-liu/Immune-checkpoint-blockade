@@ -2,7 +2,6 @@ library(magrittr)
 library(readr)
 library(readxl)
 library(dplyr)
-library(sva)
 
 #筛选出黑色素瘤的RNA-seq的anti-CTLA4的数据的应答信息
 readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="dbGAP")->dbGAP
@@ -90,16 +89,16 @@ write.table(up2,"/data/liull/immune-checkpoint-blockade/different_expression/mel
 write.table(down2,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/CTLA4/down.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 
 #GO enrich for down-gene---------------------------------------------------------------------------------------
-enrichGO(gene = up2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 0.05,readable = TRUE) %>% as.data.frame() ->up_enrichGO#0
-dim(up_enrichGO)
-enrichGO(gene = down2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 0.05,readable = TRUE) %>% as.data.frame() ->down_enrichGO#1
-dim(down_enrichGO)
-#write.table(up_enrichGO,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/CTLA4/up_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
-write.table(down_enrichGO,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/CTLA4/down_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+enrichGO(gene = up2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 0.05,readable = TRUE)  ->ego_up
+dotplot(ego_up)
+enrichGO(gene = down2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 0.05,readable = TRUE)->ego_down
+dotplot(ego_down)
+#write.table(as.data.frame(ego_up),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/CTLA4/up_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#0
+write.table(as.data.frame(ego_down),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/CTLA4/down_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#1
 
 #KEGG enrichment
-enrichKEGG(gene=up2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") %>%
-  as.data.frame()->up_enrichKEGG#0
-enrichKEGG(gene=down2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") %>%
-  as.data.frame()->down_enrichKEGG#2
+enrichKEGG(gene=up2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") ->ekegg_up#0
+enrichKEGG(gene=down2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") ->ekegg_down#2
+browseKEGG(ekegg_down, 'hsa04110')
+
 write.table(down_enrichKEGG,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/CTLA4/down_enrichKEGG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)

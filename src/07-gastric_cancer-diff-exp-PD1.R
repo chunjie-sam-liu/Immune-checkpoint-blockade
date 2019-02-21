@@ -2,10 +2,9 @@ library(magrittr)
 library(readr)
 library(readxl)
 library(dplyr)
-library(sva)
 
 #筛选出gastric cancer的RNA-seq的anti-PD1的数据的应答信息-------------
-readxl::read_excel("/data/liull/immune-checkpoint-blockade/04-all-metadata.xlsx",col_names = TRUE,sheet="SRA") %>%
+readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="SRA") %>%
   dplyr::filter(Library_strategy=="RNA-Seq") %>%
   dplyr::filter(Cancer=="gastric cancer") %>%
   dplyr::filter(Anti_target=="anti-PD1") %>%
@@ -16,7 +15,7 @@ rbind(dplyr::filter(metadata,Response=="CR"),dplyr::filter(metadata,Response=="P
 rbind(dplyr::filter(metadata,Response=="SD"),dplyr::filter(metadata,Response=="PD")) ->non_response
 
 #make difference----------------------------
-read.table("/data/liull/immune-checkpoint-blockade/expression/all_expression.txt",sep="\t",header = T,as.is = TRUE) ->data
+read.table("/data/liull/immune-checkpoint-blockade/expression/all_FPKM_expression_2.txt",sep="\t",header = T,as.is = TRUE) ->data
 all_expression=dplyr::select(data,gene_id,response$Run,non_response$Run)
 #order the expression profile by response and nonresponse to t.test
 
@@ -49,12 +48,12 @@ result=as.data.frame(cbind(all_expression3,avg.R,avg.NR,FC,p_value))
 result=cbind(rownames(result),result)
 rownames(result)=NULL
 colnames(result)[1]="ensembl_ID"
-result$ensembl_ID <- as.character(result$ensembl_ID)
+write.table(result[,c(1,(length(result)-3),(length(result)-2),(length(result)-1),length(result))],"/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer/gastric_cancer_PD1_DEG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#write all genes' difference
 
 dplyr::filter(as.data.frame(result),p_value<=0.05) %>%
-  dplyr::filter(FC>=2) -> up
+  dplyr::filter(FC>=2) -> up#71
 dplyr::filter(as.data.frame(result),p_value<=0.05) %>%
-  dplyr::filter(FC<=0.5) -> down
+  dplyr::filter(FC<=0.5) -> down#2525
 
 read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",sep="\t",header = T,as.is = TRUE) ->relationship
 merge(relationship,up,by.x="EnsemblId",by.y="ensembl_ID",all=TRUE)%>%
@@ -68,30 +67,25 @@ write.table(down2,"/data/liull/immune-checkpoint-blockade/different_expression/g
 
 
 #GO enrichment
-enrichGO(gene = up2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 0.05,readable = TRUE) %>% as.data.frame() ->up_enrichGO#dim(up_enrichGO) 3
-enrichGO(gene = down2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 0.05,readable = TRUE) %>% as.data.frame() ->down_enrichGO#55
-write.table(up_enrichGO,"/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer/up_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
-write.table(down_enrichGO,"/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer/down_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+enrichGO(gene = up2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 0.05,readable = TRUE)->ego_up#3
+dotplot(ego_up)
+enrichGO(gene = down2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 0.05,readable = TRUE)->ego_down#55
+dotplot(ego_down)
 
-#draw a map for most 10 significant enriched
-down_enrichGO=down_enrichGO[order(down_enrichGO$p.adjust),]
-go_enrich_df<- data.frame(GO=down_enrichGO$Description,p.adjust=down_enrichGO$p.adjust)[1:10,]
+write.table(as.data.frame(ego_up),"/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer/up_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+write.table(as.data.frame(ego_down),"/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer/down_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 
-ggplot(data=go_enrich_df, aes(x=GO, y=-log10(p.adjust))) +
-  geom_bar(stat="identity", width=0.6) + coord_flip()+theme_bw()+
-  labs(title = "The Most Enriched GO Terms") -> GO_enrich_pdf
-ggsave(
-  filename = 'gastric_cancer_PD1_GO_enrich.pdf',
-  plot = GO_enrich_pdf,
-  device = 'pdf',
-  path = '/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer',
-  width = 8,
-  height = 6.8
-)
 
 #KEGG enrichment
-enrichKEGG(gene=up2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") %>%
-  as.data.frame()->up_enrichKEGG#0
-enrichKEGG(gene=down2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") %>%
-  as.data.frame()->down_enrichKEGG
+enrichKEGG(gene=up2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") ->ekegg_up#0
+enrichKEGG(gene=down2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") ->ekegg_down#1
+browseKEGG(ekegg_down, 'hsa04110')
+
 write.table(down_enrichKEGG,"/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer/down_enrichKEGG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+
+#Reactome enrichment------------------------------------------------------------
+enrichPathway(gene=up2$GeneID,pvalueCutoff=0.05, readable=T)->eReactome_up
+dotplot(eReactome_up, showCategory=8)
+enrichPathway(gene=down2$GeneID,pvalueCutoff=0.05, readable=T)->eReactome_down
+dotplot(eReactome_down, showCategory=8)
+

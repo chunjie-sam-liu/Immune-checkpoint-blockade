@@ -2,7 +2,6 @@ library(magrittr)
 library(readr)
 library(readxl)
 library(dplyr)
-library(sva)
 
 #筛选出黑色素瘤的RNA-seq的anti-PD1的数据的应答信息-------------------------------------------------------------
 readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="SRA") %>%
@@ -77,7 +76,7 @@ result=as.data.frame(cbind(all_expression,avg.R,avg.NR,diff.avg,p_value))
 result=cbind(rownames(result),result)
 rownames(result)=NULL
 colnames(result)[1]="ensembl_ID"
-write.table(result[,c(1,(length(result)-3),(length(result)-2),(length(result)-1),length(result))],"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/melanoma_PD1_DEG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#write all genes' difference
+write.table(result,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/melanoma_PD1_DEG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#write all genes' difference
 
 
 #filter significant different gene-------------------------------------
@@ -96,25 +95,65 @@ write.table(up2,"/data/liull/immune-checkpoint-blockade/different_expression/mel
 write.table(down2,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/down.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 
 
-#GO enrich for down-gene---------------------------------------------------------------------------------------
-enrichGO(gene = up2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 0.05,readable = TRUE) %>% as.data.frame() ->up_enrichGO#171
-dim(up_enrichGO)
-enrichGO(gene = down2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 0.05,readable = TRUE) %>% as.data.frame() ->down_enrichGO#58
-dim(down_enrichGO)
-write.table(up_enrichGO,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/up_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
-write.table(down_enrichGO,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/down_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+#GO enrichment--------------------------------------------------------------------------------------
+enrichGO(gene = up2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 0.05,readable = TRUE)->ego_up
+dotplot(ego_up,showCategory=20)
+enrichGO(gene = down2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 0.05,readable = TRUE) ->ego_down
+dotplot(ego_down,showCategory=20)
+
+write.table(as.data.frame(ego_up),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/up_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#171
+write.table(as.data.frame(ego_down),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/down_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#58
 
 #KEGG enrichment
-enrichKEGG(gene=up2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") %>%
-  as.data.frame()->up_enrichKEGG#32
-enrichKEGG(gene=down2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") %>%
-  as.data.frame()->down_enrichKEGG#1
-write.table(up_enrichKEGG,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/up_enrichKEGG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
-write.table(down_enrichKEGG,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/down_enrichKEGG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+enrichKEGG(gene=up2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") ->ekegg_up#32
+enrichKEGG(gene=down2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH")->ekegg_down#1
+browseKEGG(ekegg_up, 'hsa04110')
+browseKEGG(ekegg_down, 'hsa04110')
 
-#heatmap for down-gene(p<0.01)--------------------------------------------------------------------------------
+write.table(as.data.frame(ekegg_up),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/up_enrichKEGG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+write.table(as.data.frame(ekegg_down),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/down_enrichKEGG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+
+#Reactome enrichment------------------------------------------------------
+enrichPathway(gene=up2$GeneID,pvalueCutoff=0.05, readable=T)->eReactome_up#17
+dotplot(eReactome_up, showCategory=17)
+enrichPathway(gene=down2$GeneID,pvalueCutoff=0.05, readable=T)->eReactome_down#11
+dotplot(eReactome_down, showCategory=11)
+
+write.table(as.data.frame(eReactome_up),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/up_enrichReactome.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+write.table(as.data.frame(eReactome_down),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/down_enrichReactome.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+
+
+
+#heatmap for down-gene(p<0.01)----------------------------------------------------------
 #dplyr::filter(down,p_value<=0.01) %>%
 #  dplyr::filter(diff.avg<=-2)-> down_for_map
 #rownames(down_for_map)=down_for_map[,3]
 #heatmap(as.matrix(down_for_map[,4:(ncol(down_for_map)-4)]),Colv=NA,ColSideColors=c(rep("purple", 44), rep("orange", 117)),col=colorRampPalette(c("green", "black","red"))(256),cexRow = 0.3,cexCol = 0.2)
-#write.table(down_for_map,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/down_for_heatmap.txt",sep="\t",quote=FALSE,col.names = TRUE,row.names = FALSE)
+
+#Heatmap(ComplexHeatmap)
+read.table("/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/up.txt",sep="\t",header = T,as.is = TRUE) ->up
+rownames(up)=up[,1]
+up[order(up$p_value,decreasing=T),]->up2#diff.avg ordered from large to small
+up2[,4:(ncol(up2)-4)] -> up2
+up2[1:10,] %>% apply(2,function(x) scale(x)) ->a
+rownames(a)=rownames(up2)[1:10]
+Heatmap(as.matrix(a),cluster_columns = FALSE,column_names_gp = gpar(fontsize = 2))
+
+
+c(rep("1",44),rep("0",117)) %>% as.matrix() ->label
+up3=rbind(label[,1],up2)
+up3=as.data.frame(t(up3))
+annot_up <- data.frame(response_VS_none = up3$`1`)
+colors = list(response_VS_none = c("1" = "green", "0" = "gray"))
+ha <- HeatmapAnnotation(annot_up, col = colors)
+Heatmap(as.matrix(a),column_names_gp = gpar(fontsize = 2),top_annotation = ha,cluster_columns = FALSE)#Heatmap for ten top P
+
+
+
+
+
+antigen_processing=c("CD74","CAPZA1","CTSD","TAPBPL","HLA-DQB1","HLA-DQA1","HLA-DOA","HLA-DRA","HLA-C","HLA-DPB1","HLA-DMB","SEC22B")
+dplyr::filter(up,up$Symbol %in%antigen_processing)->antigen_processing_map
+rownames(antigen_processing_map)=antigen_processing_map[,3]
+Heatmap(as.matrix(antigen_processing_map[,4:(ncol(antigen_processing_map)-4)]),column_names_gp = gpar(fontsize = 2),top_annotation = ha,cluster_columns = FALSE)
+
