@@ -107,8 +107,8 @@ write.table(as.data.frame(ego_down),"/data/liull/immune-checkpoint-blockade/diff
 #KEGG enrichment
 enrichKEGG(gene=up2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") ->ekegg_up#32
 enrichKEGG(gene=down2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH")->ekegg_down#1
-browseKEGG(ekegg_up, 'hsa04110')
-browseKEGG(ekegg_down, 'hsa04110')
+browseKEGG(ekegg_up, 'hsa04934')
+browseKEGG(ekegg_down, 'hsa04934')
 
 write.table(as.data.frame(ekegg_up),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/up_enrichKEGG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 write.table(as.data.frame(ekegg_down),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/down_enrichKEGG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)

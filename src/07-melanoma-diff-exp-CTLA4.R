@@ -71,7 +71,7 @@ result=as.data.frame(cbind(all_expression,avg.R,avg.NR,diff.avg,p_value))
 result=cbind(rownames(result),result)
 rownames(result)=NULL
 colnames(result)[1]="ensembl_ID"
-write.table(result[,c(1,(length(result)-3),(length(result)-2),(length(result)-1),length(result))],"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/CTLA4/melanoma_CTLA4_DEG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#write all genes' difference
+write.table(result,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/CTLA4/melanoma_CTLA4_DEG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#write all genes' difference
 
 #filter significant different gene-------------------------------------
 dplyr::filter(as.data.frame(result),p_value<=0.05) %>%
@@ -96,9 +96,16 @@ dotplot(ego_down)
 #write.table(as.data.frame(ego_up),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/CTLA4/up_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#0
 write.table(as.data.frame(ego_down),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/CTLA4/down_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#1
 
-#KEGG enrichment
+#KEGG enrichment-----------------------------------------------------------------------
 enrichKEGG(gene=up2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") ->ekegg_up#0
 enrichKEGG(gene=down2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") ->ekegg_down#2
 browseKEGG(ekegg_down, 'hsa04110')
 
 write.table(down_enrichKEGG,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/CTLA4/down_enrichKEGG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+
+#Reactome enrichment------------------------------------------------------------
+enrichPathway(gene=up2$GeneID,pvalueCutoff=0.1, readable=T)->eReactome_up#0
+dotplot(eReactome_up)
+enrichPathway(gene=down2$GeneID,pvalueCutoff=0.05, readable=T)->eReactome_down#5
+dotplot(eReactome_down, showCategory=5)
+enrichPathway(gene=down2$GeneID,pvalueCutoff=0.1, readable=T)->eReactome_down#8
