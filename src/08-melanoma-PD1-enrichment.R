@@ -1,93 +1,51 @@
 library(clusterProfiler)
 library(org.Hs.eg.db)
-library(GSVA)
+library(clusterProfiler)
 library(readxl)
 library(magrittr)
 
-read.table("/data/liull/immune-checkpoint-blockade/different_expression/melanoma/all_values.txt",sep="\t",header = T,as.is = TRUE) ->all_exp_data
-read.table("/data/liull/immune-checkpoint-blockade/different_expression/melanoma/up_gene_list.txt",sep="\t",header = T,as.is = TRUE) ->up_list
-read.table("/data/liull/immune-checkpoint-blockade/different_expression/melanoma/down_gene_list.txt",sep="\t",header = T,as.is = TRUE) ->down_list
 
-
-#get up and down gene's GO enrichment genes(no cutoff)--------------------------------------------------------------------
-bitr(up_list$Gene.name,fromType="SYMBOL",toType=c("ENTREZID"),OrgDb="org.Hs.eg.db") %>%
-  merge(up_list,.,by.x="Gene.name",by.y="SYMBOL",all=T) ->trans_up_list #Genename  GeneEnsemblID  ENTREZID
-enrichGO(gene = trans_up_list$ENTREZID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 1,qvalueCutoff = 1,readable = TRUE) %>%
-  as.data.frame() -> up_go_ALL
-GO_up_gene_list=sapply(up_go_ALL$geneID, function(x) strsplit(x,"[/]"))
-
-
-bitr(down_list$Gene.name,fromType="SYMBOL",toType=c("ENTREZID"),OrgDb="org.Hs.eg.db") %>%
-  merge(down_list,.,by.x="Gene.name",by.y="SYMBOL",all=T) ->trans_down_list #Genename  GeneEnsemblID  ENTREZID
-enrichGO(gene = trans_down_list$ENTREZID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 1,qvalueCutoff = 1,readable = TRUE) %>%
-  as.data.frame() -> down_go_ALL
-GO_down_gene_list=sapply(down_go_ALL$geneID, function(x) strsplit(x,"[/]"))
-
-
-#load expression profile-----------------------------------------------------------------------------------
-expression=all_exp_data[,-((ncol(all_exp_data)-3):ncol(all_exp_data))]
-
+#GSVA
 read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",header = T,as.is = TRUE,sep="\t") -> relationship
-dplyr::filter(expression,ensembl_ID %in% relationship$EnsemblId) ->expression_1
-merge(relationship[,2:3],expression_1,by.x="EnsemblId",by.y="ensembl_ID") -> expression_2
 
-rownames(expression_2)=expression_2[,2]
-expression_2=expression_2[,-c(1,2)]
+#melanoma_PD1----------------------------------------------------------------------------------------
 
-#get gene sets' GSVA score,and the response and non response's mean score,t test p value------------------------- 
-gsva(as.matrix(expression_2), GO_up_gene_list, mx.diff=FALSE, verbose=FALSE, parallel.sz=1) %>% 
-  unique() -> up_gsva
-gsva(as.matrix(expression_2), GO_down_gene_list, mx.diff=FALSE, verbose=FALSE, parallel.sz=1) %>%
-  unique() -> down_gsva
+read.table("/data/liull/immune-checkpoint-blockade/different_expression/melanoma/melanoma_PD1_removed_batch_expression.txt",header = T,as.is = TRUE) %>% 
+  cbind(rownames(.),.)->all_expression
+colnames(all_expression)[1]="ensembl_ID"
 
-readxl::read_excel("/data/liull/immune-checkpoint-blockade/04-all-metadata.xlsx",col_names = TRUE,sheet="SRA") ->metadata 
 
+all_expression %>%
+  dplyr::filter(ensembl_ID %in% relationship$EnsemblId) %>%
+  merge(relationship[,2:3],.,by.x="EnsemblId",by.y="ensembl_ID") %>%
+  dplyr::select(-EnsemblId)->expression
+rownames(expression) <- expression[,1]
+expression <- expression[,-1] 
+
+file_path = "/data/liull/reference/GSEA-gmt"
+gmt_2<- getGmt(paste(file_path,"c2.all.v6.2.symbols.gmt",sep="/"))
+gmt_7<- getGmt(paste(file_path,"c7.all.v6.2.symbols.gmt",sep="/"))
+
+GSVA_score_gmt2 <- gsva(data.matrix(expression), gmt_2, min.sz=1, max.sz=999999, method="zscore",kcdf="Gaussian", abs.ranking=FALSE, verbose=TRUE)
+GSVA_score_gmt7 <- gsva(data.matrix(expression), gmt_7, min.sz=1, max.sz=999999, method="zscore",kcdf="Gaussian", abs.ranking=FALSE, verbose=TRUE)
+
+readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="SRA") ->metadata 
 metadata %>%
   dplyr::filter(Library_strategy=="RNA-Seq") %>%
   dplyr::filter(Cancer=="melanoma") %>%
   dplyr::filter(Anti_target=="anti-PD1") %>%
   dplyr::select(Run,Response) ->melanoma_PD1
-
-#select response and non_response's sample id and project id
-dplyr::filter(melanoma_PD1,Response %in% c("CR","PR","R"))$Run ->response_ids
+dplyr::filter(melanoma_PD1,Response %in% c("CR","PR","R","PRCR"))$Run ->response_ids
 dplyr::filter(melanoma_PD1,Response %in% c("SD","PD","NR"))$Run ->non_response_ids
-#order gsva result by response and non-response
-dplyr::select(as.data.frame(up_gsva),response_ids) ->up_response_gsva
-dplyr::select(as.data.frame(up_gsva),non_response_ids) ->up_non_response_gsva
-ordered_up_gsva=cbind(up_response_gsva,up_non_response_gsva)
+dplyr::select(as.data.frame(GSVA_score_gmt2),response_ids,non_response_ids) ->ordered_GSVA
 
-response_Mean_up=apply(ordered_up_gsva,1,function(x) mean(x[1:ncol(up_response_gsva)]))
-non_response_Mean_up=apply(ordered_up_gsva,1,function(x) mean(x[(ncol(up_response_gsva)+1):length(ordered_up_gsva)]))
-FC_up=apply(ordered_up_gsva,1,function(x) (mean(x[1:ncol(up_response_gsva)])+0.01)/(mean(x[(ncol(up_response_gsva)+1):length(ordered_up_gsva)])+0.01))
-p_value_up=apply(ordered_up_gsva,1,function(x) t.test(x[1:ncol(up_response_gsva)],x[(ncol(up_response_gsva)+1):length(ordered_up_gsva)])$p.value)
-result_up=as.data.frame(cbind(ordered_up_gsva,response_Mean_up,non_response_Mean_up,FC_up,p_value_up))
-write.table(result_up,"/data/liull/immune-checkpoint-blockade/enrichment/melanoma/PD1_up_gene_enrichment.txt",quote = FALSE,sep="\t",row.names = TRUE,col.names = TRUE)
+avg.R=apply(ordered_GSVA,1,function(x) median(x[1:length(response_ids)]))
+avg.NR=apply(ordered_GSVA,1,function(x) median(x[(length(response_ids)+1):ncol(ordered_GSVA)]))
+diff.avg=apply(ordered_GSVA,1,function(x) (median(x[1:length(response_ids)])-median(x[(length(response_ids)+1):ncol(ordered_GSVA)])))
+p_value=apply(ordered_GSVA,1,function(x) t.test(x[1:length(response_ids)],x[(length(response_ids)+1):ncol(ordered_GSVA)])$p.value)
+diff_GSVA_gmt2=as.data.frame(cbind(ordered_GSVA,avg.R,avg.NR,diff.avg,p_value))
 
-dplyr::select(as.data.frame(down_gsva),response_ids) ->down_response_gsva
-dplyr::select(as.data.frame(down_gsva),non_response_ids) ->down_non_response_gsva
-ordered_down_gsva=cbind(down_response_gsva,down_non_response_gsva)
-
-response_Mean_down=apply(ordered_down_gsva,1,function(x) mean(x[1:ncol(down_response_gsva)]))
-non_response_Mean_down=apply(ordered_down_gsva,1,function(x) mean(x[(ncol(down_response_gsva)+1):length(ordered_down_gsva)]))
-FC_down=apply(ordered_down_gsva,1,function(x) (mean(x[1:ncol(down_response_gsva)])+0.01)/(mean(x[(ncol(down_response_gsva)+1):length(ordered_down_gsva)])+0.01))
-p_value_down=apply(ordered_down_gsva,1,function(x) t.test(x[1:ncol(down_response_gsva)],x[(ncol(down_response_gsva)+1):length(ordered_down_gsva)])$p.value)
-result_down=as.data.frame(cbind(ordered_down_gsva,response_Mean_down,non_response_Mean_down,FC_down,p_value_down))
-write.table(result_down,"/data/liull/immune-checkpoint-blockade/enrichment/melanoma/PD1_down_gene_enrichment.txt",quote = FALSE,sep="\t",row.names = TRUE,col.names = TRUE)
-
-#filter and normalization---------------------------------------------------------------------------------
-result_up <- cbind(rownames(result_up),result_up)
-dplyr::filter(result_up,p_value_up<=0.05) %>%
-  dplyr::select(1:(ncol(result_up)-4)) -> filtered_up_gene_sets
-rownames(filtered_up_gene_sets)=filtered_up_gene_sets[,1]
-filtered_up_gene_sets[,2:ncol(filtered_up_gene_sets)] %>%
-  scale(center = TRUE, scale = TRUE) %>%
-  mean() -> mean_zscore_up
-
-result_down <- cbind(rownames(result_down),result_down)
-dplyr::filter(result_down,p_value_down<=0.05) %>%
-  dplyr::select(1:(ncol(result_down)-4)) -> filtered_down_gene_sets
-rownames(filtered_down_gene_sets)=filtered_down_gene_sets[,1]
-filtered_down_gene_sets[,2:ncol(filtered_down_gene_sets)] %>%
-  scale(center = TRUE, scale = TRUE) %>%
-  mean() -> mean_zscore_down
-
+cbind(rownames(diff_GSVA_gmt2),diff_GSVA_gmt2) %>%
+  dplyr::filter(abs(diff.avg)>=1) %>%
+  dplyr::filter(p_value<=0.05)-> sig_sets
+write.table(sig_sets,"/data/liull/immune-checkpoint-blockade/GSVA/melanoma_PD1/sig_sets.txt",sep="\t",quote=FALSE,col.names = TRUE,row.names = FALSE)
