@@ -2,7 +2,7 @@ library(magrittr)
 library(readr)
 library(readxl)
 library(dplyr)
-
+library(sva)
 #筛选出黑色素瘤的RNA-seq的anti-PD1的数据的应答信息-------------------------------------------------------------
 readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="SRA") %>%
   dplyr::filter(Library_strategy=="RNA-Seq") %>%
@@ -47,9 +47,18 @@ Sum_zero=apply(expression2,1,function(x) sum(as.numeric(x),na.rm = TRUE))
 IDs_zero=which(Sum_zero==0)
 expression3=expression2[-IDs_zero,]#delete the gene has all 0.000 depression
 
-for(i in 1:length(expression3)) {
-  expression3[is.na(expression3[, i]), i] <- mean(expression3[, i], na.rm = T)
+a=1:nrow(expression3)
+for(j in 1:length(expression3)){
+  which(expression3[,j]<10) ->b
+  intersect(a,b)->a
+}
+expression4=expression3[-a,]
+
+for(i in 1:length(expression4)) {
+  expression4[is.na(expression4[, i]), i] <- mean(expression4[, i], na.rm = T)
 }#replace NA to mean of its sample expression
+
+
 
 
 #remove batch effect---------------------------------------------------------------------------------
@@ -57,8 +66,8 @@ batch1=rep(1,length(Project1_id))
 batch2=rep(2,length(Project2_id))
 batch3=rep(3,length(Project3_id))
 batch=c(batch1,batch2,batch3)
-expression3=as.matrix(expression3)
-combat_edata = ComBat(dat=expression3, batch=batch, mod=NULL, par.prior=TRUE, prior.plots=FALSE)
+expression4=as.matrix(expression4)
+combat_edata = ComBat(dat=expression4, batch=batch, mod=NULL, par.prior=TRUE, prior.plots=FALSE)
 write.table(combat_edata,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/melanoma_PD1_removed_batch_expression.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
 
 #make difference----------------------------------------------------------------------------------------
@@ -148,12 +157,9 @@ colors = list(response_VS_none = c("1" = "green", "0" = "gray"))
 ha <- HeatmapAnnotation(annot_up, col = colors)
 Heatmap(as.matrix(a),column_names_gp = gpar(fontsize = 2),top_annotation = ha,cluster_columns = FALSE)#Heatmap for ten top P
 
-
-
-
-
-antigen_processing=c("CD74","CAPZA1","CTSD","TAPBPL","HLA-DQB1","HLA-DQA1","HLA-DOA","HLA-DRA","HLA-C","HLA-DPB1","HLA-DMB","SEC22B")
-dplyr::filter(up,up$Symbol %in%antigen_processing)->antigen_processing_map
-rownames(antigen_processing_map)=antigen_processing_map[,3]
-Heatmap(as.matrix(antigen_processing_map[,4:(ncol(antigen_processing_map)-4)]),column_names_gp = gpar(fontsize = 2),top_annotation = ha,cluster_columns = FALSE)
+rownames(down2)=down2$EnsemblId
+down2[,-c(1,2,3,(ncol(down2)-3),(ncol(down2)-2),(ncol(down2)-1),(ncol(down2)))]->a
+annotation_col = data.frame(GeneClass = factor(rep(c("response", "non-response"), c(length(response_expression),length(non_response_expression)))))
+rownames(annotation_col)=colnames(a)
+pheatmap(a, annotation_col = annotation_col,cluster_cols = FALSE,scale="column")
 

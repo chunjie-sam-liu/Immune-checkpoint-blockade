@@ -108,4 +108,7 @@ enrichPathway(gene=up2$GeneID,pvalueCutoff=0.1, readable=T)->eReactome_up#0
 dotplot(eReactome_up)
 enrichPathway(gene=down2$GeneID,pvalueCutoff=0.05, readable=T)->eReactome_down#5
 dotplot(eReactome_down, showCategory=5)
-enrichPathway(gene=down2$GeneID,pvalueCutoff=0.1, readable=T)->eReactome_down#8
+#enrichPathway(gene=down2$GeneID,pvalueCutoff=0.1, readable=T)->eReactome_down#8
+
+write.table(as.data.frame(eReactome_down),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/CTLA4/down_enrichReactome.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+

@@ -48,7 +48,7 @@ result=as.data.frame(cbind(all_expression3,avg.R,avg.NR,FC,p_value))
 result=cbind(rownames(result),result)
 rownames(result)=NULL
 colnames(result)[1]="ensembl_ID"
-write.table(result[,c(1,(length(result)-3),(length(result)-2),(length(result)-1),length(result))],"/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer/gastric_cancer_PD1_DEG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#write all genes' difference
+write.table(result,"/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer/gastric_cancer_PD1_DEG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#write all genes' difference
 
 dplyr::filter(as.data.frame(result),p_value<=0.05) %>%
   dplyr::filter(FC>=2) -> up#71
@@ -84,8 +84,11 @@ browseKEGG(ekegg_down, 'hsa04110')
 write.table(down_enrichKEGG,"/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer/down_enrichKEGG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 
 #Reactome enrichment------------------------------------------------------------
-enrichPathway(gene=up2$GeneID,pvalueCutoff=0.05, readable=T)->eReactome_up
-dotplot(eReactome_up, showCategory=8)
-enrichPathway(gene=down2$GeneID,pvalueCutoff=0.05, readable=T)->eReactome_down
-dotplot(eReactome_down, showCategory=8)
+enrichPathway(gene=up2$GeneID,pvalueCutoff=0.05, readable=T)->eReactome_up#4
+dotplot(eReactome_up, showCategory=4)
+enrichPathway(gene=down2$GeneID,pvalueCutoff=0.05, readable=T)->eReactome_down#10
+dotplot(eReactome_down, showCategory=10)
+write.table(as.data.frame(eReactome_up),"/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer/up_enrichReactome.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+write.table(as.data.frame(eReactome_down),"/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer/down_enrichReactome.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+
 
