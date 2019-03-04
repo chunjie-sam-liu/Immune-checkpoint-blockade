@@ -1,74 +1,198 @@
-source("https://bioconductor.org/biocLite.R")
-biocLite("sva")
-library(sva)
-library(readr)
-library(magrittr)
-library(dplyr)
-path_data="/data/liull/data/FPKM/"
-expression_files <- list.files(path = path_data, pattern = 'expression.txt', recursive = TRUE,full.names = TRUE)
+#ComBat--------------------------------------------------------------------------------------
+#filter melanoma RNA-seq anti-PD1
+readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="SRA") %>%
+  dplyr::filter(Library_strategy=="RNA-Seq") %>%
+  dplyr::filter(Cancer=="melanoma") %>%
+  dplyr::filter(Anti_target=="anti-PD1") %>%
+  dplyr::select(SRA_Study,Run,Response) ->metadata
 
-for (fi in 1:2) {
+#select response and non_response's sample id and project id
+dplyr::filter(metadata,Response %in% c("CR","PR","PRCR","R")) -> response
+dplyr::filter(metadata,Response %in% c("SD","PD","NR")) -> non_response
 
-read.table(expression_files[fi],sep="\t",header = T,as.is = TRUE) -> nc_edata1
+#expression prepare for batch effect
+read.table("/data/liull/immune-checkpoint-blockade/expression/all_FPKM_expression_2.txt",sep="\t",header = T,as.is = TRUE) ->data1
+Project=unique(metadata$SRA_Study)
+dplyr::filter(metadata,SRA_Study==Project[1]) %>%
+  dplyr::select(Run)  %>%
+  as.matrix() %>%
+  as.character()->Project1_id
 
-nc_edata1=nc_edata1[-dim(nc_edata1)[1],]
+dplyr::filter(metadata,SRA_Study==Project[2]) %>%
+  dplyr::select(Run)  %>%
+  as.matrix() %>%
+  as.character()->Project2_id
 
-non_NA_sample_number_per_gene=NULL
-for (i in 1:dim(nc_edata1)[1]){non_NA_sample_number_per_gene[i]=112-sum(is.na(nc_edata1[i,]))}
-nc_edata2=cbind(nc_edata1,non_NA_sample_number_per_gene)
-non_NA_gene_number_per_sample=NULL
-non_NA_gene_number_per_sample[1]="non_NA_gene_number_per_sample"
-for (i in 2:(dim(nc_edata1)[2])){non_NA_gene_number_per_sample[i]=dim(nc_edata1)[1]-sum(is.na(nc_edata1[,i]))}
-non_NA_gene_number_per_sample[dim(nc_edata2)[2]]=sum(as.numeric(non_NA_gene_number_per_sample[2:dim(nc_edata1)[2]]))
+dplyr::filter(metadata,SRA_Study==Project[3]) %>%
+  dplyr::select(Run)  %>%
+  as.matrix() %>%
+  as.character()->Project3_id
 
-nc_edata2=rbind(nc_edata2,non_NA_gene_number_per_sample)
-name=strsplit(expression_files[fi],"[/]")[[1]][7]
-write.table(nc_edata2,paste(path_data,name,"_non_NA_number.txt",sep = ""),quote = FALSE,sep="\t",row.names = FALSE)
+expression1=dplyr::select(data1,gene_id,Project1_id,Project2_id,Project3_id)
+#order the expression profile by project to remove batch effect
 
+Sum_NA=apply(expression1,1,function(x) sum(is.na(x)))
+NA_IDs=which(Sum_NA>=(length(expression1)/4))
+expression2=expression1[-NA_IDs,]#delete the gene has more than 1/4 samples' NA
+
+row.names(expression2)=expression2[,1]
+expression2=expression2[,-1]
+dim(expression2)#make rownames to avoid of sum wrong
+
+Sum_zero=apply(expression2,1,function(x) sum(as.numeric(x),na.rm = TRUE))
+IDs_zero=which(Sum_zero==0)
+expression3=expression2[-IDs_zero,]#delete the gene has all 0.000 depression
+
+a=1:nrow(expression3)
+for(j in 1:length(expression3)){
+  which(expression3[,j]<10) ->b
+  intersect(a,b)->a
+}
+expression4=expression3[-a,]#delete the gene has all less than 10 exression
+
+for(i in 1:length(expression4)) {
+  expression4[is.na(expression4[, i]), i] <- mean(expression4[, i], na.rm = T)
+}#replace NA to mean of its sample expression
+
+
+#remove batch effect by ComBat
+batch1=rep(1,length(Project1_id))
+batch2=rep(2,length(Project2_id))
+batch3=rep(3,length(Project3_id))
+batch=c(batch1,batch2,batch3)
+expression4=as.matrix(expression4)
+combat_edata = ComBat(dat=expression4, batch=batch, mod=NULL, par.prior=TRUE, prior.plots=FALSE)
+#write.table(combat_edata,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/melanoma_PD1_removed_batch_expression.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
+
+
+
+#svaseq-------------------------------------------------------------------------------
+
+mod1 = model.matrix(~as.factor(batch))
+mod0 = cbind(mod1[,1])
+
+#my_n_sv = num.sv(expression4,mod1,method="be")#0
+#my_n_sv = num.sv(expression4,mod1,method="leek")#160
+my_svseq = svaseq(expression4,mod1,mod0)
+my_sv<-my_svseq$sv
+
+#-- Plot
+x=my_sv[,1]
+y=my_sv[,2]
+point_color=c(rep("P1",length(Project1_id)),rep("P2",length(Project2_id)),rep("P3",length(Project3_id)))
+p=ggplot(data.frame(x,y,point_color),aes(x,y,label = colnames(expression4),colour=point_color))
+p+geom_point(shape=16,size=2)
+
+#-- Clean original input and obtain corrected 
+cleaningY = function(y, mod, svaobj) {
+  X = cbind(mod, svaobj$sv)
+  Hat = solve(t(X)%*%X)%*%t(X)
+  beta = (Hat%*%t(y))
+  P = ncol(mod)
+  cleany = y-t(as.matrix(X[,-c(1:P)])%*%beta[-c(1:P),])
+  return(cleany)
 }
 
-
-library(purrr)
-expression_files2 <- list.files(path = path_data, pattern = 'NA_number.txt', recursive = TRUE,full.names = TRUE)
-expression_files2 %>% 
-  purrr::map(
-    .f = function(.x) {
-  read.table(.x,sep="\t",header = T,as.is = TRUE) -> data
-data$non_NA_sample_number_per_gene=as.numeric(data$non_NA_sample_number_per_gene)
-dplyr::filter(data,non_NA_sample_number_per_gene>=3*(dim(data)[2]-2)/4) ->data2
-#filter the gene has too many NA
-
-data2=data2[1:(dim(data2)[1]-1),1:(dim(data2)[2]-1)]#delete NA number col and row
-
-row.names(data2)=data2[,1]
-data2=data2[,-1]#make rownames
-dim(data2)
-
-del=c(50,51,52,53,54,57,58,59,60,61,62,65,66,67)
-data2=data2[,-del]#delete the wrong sample with too little gene mapped
+svaseq_removed = cleaningY(expression4, mod1, my_svseq)
+pca = prcomp(t(svaseq_removed), scale=TRUE)
+plot(pca$x[,1], pca$x[,2],col=color)
 
 
 
-Sum=apply(data2,1,function(x) sum(x,na.rm = TRUE))
-IDs=which(Sum==0)
-data3=data2[-IDs,]#delete the gene has all 0.000 depression
 
-a=NULL
-for(i in 1:dim(data3)[2]) {
-  a <- mean(data3[, i], na.rm = T)
-  data3[is.na(data3[, i]), i] <- a
-}#take NA to mean of its sample
+#MDS test---------------------------------------------------------------------------------
+#MDS before
+a1=as.matrix(dist(t(expression4)))
+voles.mds=cmdscale(a1,k=13,eig=T)
+sum(abs(voles.mds$eig[1:2]))/sum(abs(voles.mds$eig))
+sum((voles.mds$eig[1:2])^2)/sum((voles.mds$eig)^2)
+x = voles.mds$points[,1]
+y = voles.mds$points[,2]
+point_color=c(rep("P1",length(Project1_id)),rep("P2",length(Project2_id)),rep("P3",length(Project3_id)))
+p=ggplot(data.frame(x,y,point_color),aes(x,y,label = colnames(a1),colour=point_color))+
+  geom_point(shape=16,size=1)
+ggsave(
+  filename = 'MDS_before.pdf',
+  plot = p,
+  device = 'pdf',
+  path = '/data/liull/immune-checkpoint-blockade/batch_effect/',
+  width = 6,
+  height = 6.8
+)
 
 
+#MDS after removing batch effect with ComBat
+a2=as.matrix(dist(t(combat_edata)))
+voles.mds_2=cmdscale(a2,k=13,eig=T)
+sum(abs(voles.mds_2$eig[1:2]))/sum(abs(voles.mds_2$eig))
+sum((voles.mds_2$eig[1:2])^2)/sum((voles.mds_2$eig)^2)
+x = voles.mds_2$points[,1]
+y = voles.mds_2$points[,2]
+point_color=c(rep("P1",length(Project1_id)),rep("P2",length(Project2_id)),rep("P3",length(Project3_id)))
+p=ggplot(data.frame(x,y,point_color),aes(x,y,label = colnames(a2),colour=point_color))+
+  geom_point(shape=16,size=1)
+ggsave(
+  filename = 'MDS_ComBat.pdf',
+  plot = p,
+  device = 'pdf',
+  path = '/data/liull/immune-checkpoint-blockade/batch_effect/',
+  width = 6,
+  height = 6.8
+)
 
-batch1=rep(1,47)
-batch2=rep(2,23)
-batch3=rep(3,28)
-batch=c(batch1,batch2,batch3)
-data3=as.matrix(data3)
-combat_edata = ComBat(dat=data3, batch=batch, mod=NULL, par.prior=TRUE, prior.plots=FALSE)
+#MDS after removing batch effect with svaseq
+a3=as.matrix(dist(t(svaseq_removed)))
+voles.mds_3=cmdscale(a3,k=13,eig=T)
+sum(abs(voles.mds_3$eig[1:2]))/sum(abs(voles.mds_3$eig))
+sum((voles.mds_3$eig[1:2])^2)/sum((voles.mds_3$eig)^2)
+x = voles.mds_3$points[,1]
+y = voles.mds_3$points[,2]
+point_color=c(rep("P1",length(Project1_id)),rep("P2",length(Project2_id)),rep("P3",length(Project3_id)))
+p=ggplot(data.frame(x,y,point_color),aes(x,y,label = colnames(a3),colour=point_color))+
+  geom_point(shape=16,size=2)
+ggsave(
+  filename = 'MDS_svaseq.pdf',
+  plot = p,
+  device = 'pdf',
+  path = '/data/liull/immune-checkpoint-blockade/batch_effect/',
+  width = 6,
+  height = 6.8
+)
 
-output_name=strsplit(strsplit(.x,"[/]")[[1]][7],"[_]")[[1]][1]
-write.table(combat_edata,paste(path_data,output_name,"_expression_deleted_batch.txt",sep = ""),quote = FALSE,sep="\t",row.names = TRUE)
- }
+
+#PCA test----------------------------------------------------------------------------------
+#before
+pca_result <- prcomp(t(expression4),scale=T) 
+point_color=c(rep("P1",length(Project1_id)),rep("P2",length(Project2_id)),rep("P3",length(Project3_id)))
+ggplot(data.frame(pca_result$x[,1:2],point_color),aes(pca_result$x[,1],pca_result$x[,2],label = colnames(expression4),colour=point_color)) + geom_point(shape=16,size=1)->PCA_plot
+ggsave(
+  filename = 'PCA_before.pdf',
+  plot = PCA_plot,
+  device = 'pdf',
+  path = '/data/liull/immune-checkpoint-blockade/batch_effect/',
+  width = 6,
+  height = 6.8
+)
+
+#combat
+pca_result <- prcomp(t(combat_edata),scale=T) 
+ggplot(data.frame(pca_result$x[,1:2],point_color),aes(pca_result$x[,1],pca_result$x[,2],label = colnames(combat_edata),colour=point_color)) + geom_point(shape=16,size=1)->PCA_plot
+ggsave(
+  filename = 'PCA_ComBat.pdf',
+  plot = PCA_plot,
+  device = 'pdf',
+  path = '/data/liull/immune-checkpoint-blockade/batch_effect/',
+  width = 6,
+  height = 6.8
+)
+#svaseq
+pca_result <- prcomp(t(svaseq_removed),scale=T) 
+ggplot(data.frame(pca_result$x[,1:2],point_color),aes(pca_result$x[,1],pca_result$x[,2],label = colnames(combat_edata),colour=point_color)) + geom_point(shape=16,size=1)->PCA_plot
+ggsave(
+  filename = 'PCA_svaseq.pdf',
+  plot = PCA_plot,
+  device = 'pdf',
+  path = '/data/liull/immune-checkpoint-blockade/batch_effect/',
+  width = 6,
+  height = 6.8
 )
