@@ -1,4 +1,10 @@
 #ComBat--------------------------------------------------------------------------------------
+library(magrittr)
+library(readr)
+library(readxl)
+library(dplyr)
+
+
 #filter melanoma RNA-seq anti-PD1
 readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="SRA") %>%
   dplyr::filter(Library_strategy=="RNA-Seq") %>%
@@ -43,15 +49,15 @@ Sum_zero=apply(expression2,1,function(x) sum(as.numeric(x),na.rm = TRUE))
 IDs_zero=which(Sum_zero==0)
 expression3=expression2[-IDs_zero,]#delete the gene has all 0.000 depression
 
-a=1:nrow(expression3)
-for(j in 1:length(expression3)){
-  which(expression3[,j]<10) ->b
-  intersect(a,b)->a
-}
-expression4=expression3[-a,]#delete the gene has all less than 10 exression
+#a=1:nrow(expression3)
+#for(j in 1:length(expression3)){
+#  which(expression3[,j]<10) ->b
+#  intersect(a,b)->a
+#}
+#expression4=expression3[-a,]#delete the gene has all less than 10 exression
 
-for(i in 1:length(expression4)) {
-  expression4[is.na(expression4[, i]), i] <- mean(expression4[, i], na.rm = T)
+for(i in 1:length(expression3)) {
+  expression3[is.na(expression3[, i]), i] <- mean(expression3[, i], na.rm = T)
 }#replace NA to mean of its sample expression
 
 
@@ -60,8 +66,8 @@ batch1=rep(1,length(Project1_id))
 batch2=rep(2,length(Project2_id))
 batch3=rep(3,length(Project3_id))
 batch=c(batch1,batch2,batch3)
-expression4=as.matrix(expression4)
-combat_edata = ComBat(dat=expression4, batch=batch, mod=NULL, par.prior=TRUE, prior.plots=FALSE)
+expression3=as.matrix(expression3)
+combat_edata = ComBat(dat=expression3, batch=batch, mod=NULL, par.prior=TRUE, prior.plots=FALSE)
 #write.table(combat_edata,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/melanoma_PD1_removed_batch_expression.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
 
 
