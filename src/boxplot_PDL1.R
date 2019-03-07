@@ -11,6 +11,7 @@ readxl::read_excel("/data/liucj/data/immune-checkpoint-blockade/all_metadata_ava
   dplyr::filter(Library_strategy=="RNA-Seq") %>%
   dplyr::filter(Cancer=="melanoma") %>%
   dplyr::filter(Anti_target=="anti-PD1") %>%
+  dplyr::filter(Biopsy_Time=="pre-treatment")%>%
   dplyr::select(SRA_Study,Run,Response) ->metadata
 
 #select response and non_response's sample id and project id
@@ -25,7 +26,7 @@ dplyr::select(PDL1,response$Run,non_response$Run)%>%
 colnames(ordered_PDL1_1)=c("PDL1","group")
 ordered_PDL1_1$PDL1=as.numeric(as.character(ordered_PDL1_1$PDL1))
 ordered_PDL1_1$PDL1[which(ordered_PDL1_1$PDL1[]<0)]=0.001
-ordered_PDL1_1$PDL1=log10(ordered_PDL1_1$PDL1)
+ordered_PDL1_1$PDL1=log2(ordered_PDL1_1$PDL1)
 
 
 #ggplot(ordered_PDL1_1)+geom_boxplot(aes(x=group_1,y=PDL1,fill=group_1))->boxplot_melanoma_PDL1
@@ -44,6 +45,7 @@ readxl::read_excel("/data/liucj/data/immune-checkpoint-blockade/all_metadata_ava
   dplyr::filter(Library_strategy=="RNA-Seq") %>%
   dplyr::filter(Cancer=="melanoma") %>%
   dplyr::filter(Anti_target=="anti-CTLA4") %>%
+  dplyr::filter(Biopsy_Time=="pre-treatment")%>%
   dplyr::select(SRA_Study,Run,Response) ->metadata
 
 #select response and non_response's sample id and project id
@@ -58,7 +60,7 @@ dplyr::select(PDL1,response$Run,non_response$Run) %>%
 colnames(ordered_PDL1_2)=c("PDL1","group")
 ordered_PDL1_2$PDL1=as.numeric(as.character(ordered_PDL1_2$PDL1))
 ordered_PDL1_2$PDL1[which(ordered_PDL1_2$PDL1[]<0)]=0.001
-ordered_PDL1_2$PDL1=log10(ordered_PDL1_2$PDL1)
+ordered_PDL1_2$PDL1=log2(ordered_PDL1_2$PDL1)
 
 #ggplot(ordered_PDL1_2)+geom_boxplot(aes(x=group,y=PDL1,fill=group))->boxplot_melanoma_CTLA4
 
@@ -68,6 +70,7 @@ readxl::read_excel("/data/liucj/data/immune-checkpoint-blockade/all_metadata_ava
   dplyr::filter(Library_strategy=="RNA-Seq") %>%
   dplyr::filter(Cancer=="gastric cancer") %>%
   dplyr::filter(Anti_target=="anti-PD1") %>%
+  dplyr::filter(Biopsy_Time=="pre-treatment")%>%
   dplyr::select(SRA_Study,Run,Response) ->metadata
 
 rbind(dplyr::filter(metadata,Response=="CR"),dplyr::filter(metadata,Response=="PR")) ->response
@@ -86,8 +89,7 @@ PDL1[,-1]%>%
 
 colnames(ordered_PDL1_3)=c("PDL1","group")
 
-ordered_PDL1_3$PDL1=log10(as.numeric(as.character(ordered_PDL1_3$PDL1)))
-ordered_PDL1_3$PDL1=as.numeric(as.character(ordered_PDL1_3$PDL1))
+ordered_PDL1_3$PDL1=log2(as.numeric(as.character(ordered_PDL1_3$PDL1)))
 #ggplot(ordered_PDL1)+geom_boxplot(aes(x=group,y=PDL1,fill=group))->boxplot_gastric_cancer_PDL1
 
 
@@ -95,9 +97,9 @@ my_comparisons <- list(c("CR/PR", "SD/PD"))
 ggboxplot(ordered_PDL1_1, x="group", y="PDL1", color = "group")+
   stat_compare_means()->boxplot_melanoma_PD1_PDL1
 ggboxplot(ordered_PDL1_2, x="group", y="PDL1", color = "group")+
-  stat_compare_means(comparisons=my_comparisons,method = "t.test")->boxplot_melanoma_CTLA4_PDL1
+  stat_compare_means(comparisons=my_comparisons)->boxplot_melanoma_CTLA4_PDL1
 ggboxplot(ordered_PDL1_3, x="group", y="PDL1", color = "group")+
-  stat_compare_means()
+  stat_compare_means(comparisons=my_comparisons)
 
 cbind(rep("melanoma_PD1",nrow(ordered_PDL1_1)),ordered_PDL1_1)->a
 cbind(rep("melanoma_CTLA4",nrow(ordered_PDL1_2)),ordered_PDL1_2)->b
@@ -106,10 +108,22 @@ colnames(a)[1]="Cancer"
 colnames(b)[1]="Cancer"
 colnames(c)[1]="Cancer"
 rbind(a,b,c)->all
-p <- ggboxplot(all, x="Cancer", y="PDL1", color = "group", palette = "jco", add = "jitter") + 
-  stat_compare_means(aes(group=group))
+anno1 <- wilcox.test(ordered_PDL1_1[ordered_PDL1_1$group=="CR/PR",1],ordered_PDL1_1[ordered_PDL1_1$group=="SD/PD",1])$p.value
+anno2 <- wilcox.test(ordered_PDL1_2[ordered_PDL1_2$group=="CR/PR",1],ordered_PDL1_2[ordered_PDL1_2$group=="SD/PD",1])$p.value
+anno3 <- wilcox.test(ordered_PDL1_3[ordered_PDL1_3$group=="CR/PR",1],ordered_PDL1_3[ordered_PDL1_3$group=="SD/PD",1])$p.value
+ggplot(all, aes(x=Cancer, y=PDL1, fill = group))+
+  geom_boxplot(position="dodge")+
+  theme(panel.grid =element_blank())+
+  geom_signif(annotation=formatC(anno1, digits=3),y_position=5.5, xmin=0.8, xmax=1.19, margin_top= 0.05)+
+  geom_signif(annotation=formatC(anno2, digits=3),y_position=5.5, xmin=1.8, xmax=2.19)+
+  geom_signif(annotation=formatC(anno3, digits=3),y_position=5.5, xmin=2.8, xmax=3.19) -> p
+
+
+#p <- ggboxplot(all, x="Cancer", y="PDL1", color = "group", palette = "jco") + 
+  stat_compare_means(aes(group=group,label=..p.format..),label.y = c(7, 7, 7))
+
 ggsave(
-  filename = 'boxplot_PDL1.pdf',
+  filename = 'boxplot_PDL1_3.pdf',
   plot = p,
   device = 'pdf',
   path = '/data/liull/immune-checkpoint-blockade/different_expression',
