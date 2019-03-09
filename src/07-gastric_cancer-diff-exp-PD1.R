@@ -43,7 +43,8 @@ avg.R=apply(all_expression3,1,function(x) mean(x[1:nrow(response)]))
 avg.NR=apply(all_expression3,1,function(x) mean(x[(nrow(response)+1):length(all_expression3)]))
 FC=apply(all_expression3,1,function(x) (mean(x[1:nrow(response)])+0.01)/(mean(x[(nrow(response)+1):length(all_expression3)])+0.01))
 p_value=apply(all_expression3,1,function(x) t.test(x[1:nrow(response)],x[(nrow(response)+1):length(all_expression3)])$p.value)
-result=as.data.frame(cbind(all_expression3,avg.R,avg.NR,FC,p_value))
+t_statistic=apply(all_expression3,1,function(x) t.test(x[1:nrow(response)],x[(nrow(response)+1):length(all_expression3)])$statistic)
+result=as.data.frame(cbind(all_expression3,avg.R,avg.NR,FC,p_value,t_statistic))
 
 result=cbind(rownames(result),result)
 rownames(result)=NULL

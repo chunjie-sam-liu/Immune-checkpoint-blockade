@@ -13,8 +13,8 @@ readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_availabl
   dplyr::filter(Library_strategy=="RNA-Seq") %>%
   dplyr::filter(Cancer=="melanoma") %>%
   dplyr::filter(Anti_target=="anti-PD1") %>%
-  #dplyr::filter(Biopsy_Time=="pre-treatment")%>%
-  dplyr::select(SRA_Study,Run,Response) ->metadata#87
+  dplyr::filter(Biopsy_Time=="pre-treatment")%>%###
+  dplyr::select(SRA_Study,Run,Response) ->metadata
 
 #select and order profile--response~nonresponse
 dplyr::filter(metadata,Response %in% c("CR","PR","PRCR","R")) -> response#26
@@ -31,50 +31,67 @@ result=as.data.frame(cbind(ordered_melanoma_PD1,avg.R,avg.NR,diff.avg,p_value,t_
 result=cbind(rownames(result),result)
 rownames(result)=NULL
 colnames(result)[1]="ensembl_ID"
-write.table(result,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/melanoma_PD1_DEG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#write all genes' difference
+write.table(result,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/pretreatment/melanoma_PD1_DEG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#write all genes' difference
 
 
 dplyr::filter(as.data.frame(result),p_value<=0.05) %>%
-  dplyr::filter(diff.avg>=2) -> up#36
+  dplyr::filter(diff.avg>=2) -> up
 
 dplyr::filter(as.data.frame(result),p_value<=0.05) %>%
-  dplyr::filter(diff.avg<=-2) -> down#78
+  dplyr::filter(diff.avg<=-2) -> down
 
 read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",sep="\t",header = T,as.is = TRUE) ->relationship
 merge(relationship,up,by.x="EnsemblId",by.y="ensembl_ID",all=TRUE)%>%
   dplyr::filter(EnsemblId %in% up$ensembl_ID) ->up2
 merge(relationship,down,by.x="EnsemblId",by.y="ensembl_ID",all=TRUE)%>%
   dplyr::filter(EnsemblId %in% down$ensembl_ID) ->down2
-write.table(up2,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/up.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
-write.table(down2,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/down.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+write.table(up2,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/pretreatment/up.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+write.table(down2,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/pretreatment/down.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 
 
 #GO enrichment--------------------------------------------------------------------------------------
 enrichGO(gene = up2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 0.05,readable = TRUE)->ego_up
-dotplot(ego_up,showCategory=20)
+dotplot(ego_up,showCategory=20)->ego_up_plot
 enrichGO(gene = down2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 0.05,readable = TRUE) ->ego_down
-dotplot(ego_down,showCategory=20)
+dotplot(ego_down,showCategory=20)->ego_down_plot
 
-write.table(as.data.frame(ego_up),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/up_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#171
-write.table(as.data.frame(ego_down),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/down_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#58
+ggsave(
+  filename = 'melanoma_PD1_down_GOenrich.pdf',
+  plot = ego_down_plot,
+  device = 'pdf',
+  path = '/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/pretreatment/',
+  width = 12,
+  height = 8
+)
+
+write.table(as.data.frame(ego_up),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/pretreatment/up_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#
+write.table(as.data.frame(ego_down),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/pretreatment/down_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#
 
 #KEGG enrichment
 enrichKEGG(gene=up2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") ->ekegg_up#32
 enrichKEGG(gene=down2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH")->ekegg_down#1
 browseKEGG(ekegg_up, 'hsa04934')
 browseKEGG(ekegg_down, 'hsa04934')
-
 write.table(as.data.frame(ekegg_up),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/up_enrichKEGG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 write.table(as.data.frame(ekegg_down),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/down_enrichKEGG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 
 #Reactome enrichment------------------------------------------------------
-enrichPathway(gene=up2$GeneID,organism="human",pvalueCutoff=0.01, readable=T)->eReactome_up#17
-dotplot(eReactome_up, showCategory=17)
-enrichPathway(gene=down2$GeneID,pvalueCutoff=0.05, readable=T)->eReactome_down#11
-dotplot(eReactome_down, showCategory=11)
+enrichPathway(gene=up2$GeneID,organism="human",pvalueCutoff=0.05, readable=T)->eReactome_up
+dotplot(eReactome_up, showCategory=20)
+enrichPathway(gene=down2$GeneID,organism="human",pvalueCutoff=0.05, readable=T)->eReactome_down
+dotplot(eReactome_down, showCategory=20)->Reactome_down_plot
 
-write.table(as.data.frame(eReactome_up),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/up_enrichReactome.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
-write.table(as.data.frame(eReactome_down),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/down_enrichReactome.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+ggsave(
+  filename = 'melanoma_PD1_down_Reactome.pdf',
+  plot = Reactome_down_plot,
+  device = 'pdf',
+  path = '/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/pretreatment/',
+  width = 12,
+  height = 8
+)
+
+write.table(as.data.frame(eReactome_up),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/pretreatment/up_enrichReactome.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+write.table(as.data.frame(eReactome_down),"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/pretreatment/down_enrichReactome.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 
 
 
