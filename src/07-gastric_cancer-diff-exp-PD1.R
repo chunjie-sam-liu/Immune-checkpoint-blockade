@@ -71,7 +71,16 @@ write.table(down2,"/data/liull/immune-checkpoint-blockade/different_expression/g
 enrichGO(gene = up2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 0.05,readable = TRUE)->ego_up#3
 dotplot(ego_up)
 enrichGO(gene = down2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 0.05,readable = TRUE)->ego_down#55
-dotplot(ego_down)
+dotplot(ego_down,showCategory=20)->ego_down_plot
+ggsave(
+  filename = 'gastric_cancer_PD1_down_GOenrich.png',
+  plot = ego_down_plot,
+  device = 'png',
+  path = '/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer',
+  width = 12,
+  height = 8
+)
+
 
 write.table(as.data.frame(ego_up),"/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer/up_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 write.table(as.data.frame(ego_down),"/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer/down_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)

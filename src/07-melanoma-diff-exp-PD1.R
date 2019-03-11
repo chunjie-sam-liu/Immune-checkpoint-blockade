@@ -77,9 +77,9 @@ write.table(as.data.frame(ekegg_down),"/data/liull/immune-checkpoint-blockade/di
 
 #Reactome enrichment------------------------------------------------------
 enrichPathway(gene=up2$GeneID,organism="human",pvalueCutoff=0.05, readable=T)->eReactome_up
-dotplot(eReactome_up, showCategory=20)
+dotplot(eReactome_up, showCategory=20)#0
 enrichPathway(gene=down2$GeneID,organism="human",pvalueCutoff=0.05, readable=T)->eReactome_down
-dotplot(eReactome_down, showCategory=20)->Reactome_down_plot
+dotplot(eReactome_down, showCategory=20)->Reactome_down_plot#13
 
 ggsave(
   filename = 'melanoma_PD1_down_Reactome.pdf',
