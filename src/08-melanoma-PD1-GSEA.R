@@ -24,6 +24,10 @@ fgsea_reactome <- fgsea(pathways = my_pathways,
 head(fgsea_reactome[order(pval), ])
 sum(fgsea_reactome[, padj < 0.05])
 
+dplyr::filter(fgsea_reactome,padj< 0.05)->sig_Reactome
+data.frame(lapply(sig_Reactome,as.character), stringsAsFactors=FALSE)->sig_Reactome
+write.table(sig_Reactome,"/data/liull/immune-checkpoint-blockade/GSEA/melanoma_PD1/pretreatment/sig_Reactome.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#
+
 #plot the single significantly enriched pathway
 plotEnrichment(my_pathways[['Extracellular matrix organization']],
                gene_list) + labs(title='Extracellular matrix organization')->ECM_organization
