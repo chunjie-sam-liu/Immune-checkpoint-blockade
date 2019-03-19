@@ -49,15 +49,15 @@ Sum_zero=apply(expression2,1,function(x) sum(as.numeric(x),na.rm = TRUE))
 IDs_zero=which(Sum_zero==0)
 expression3=expression2[-IDs_zero,]#delete the gene has all 0.000 depression
 
-#a=1:nrow(expression3)
-#for(j in 1:length(expression3)){
-#  which(expression3[,j]<10) ->b
-#  intersect(a,b)->a
-#}
-#expression4=expression3[-a,]#delete the gene has all less than 10 exression
+a=1:nrow(expression3)
+for(j in 1:length(expression3)){
+  which(expression3[,j]<10) ->b
+  intersect(a,b)->a
+}
+expression4=expression3[-a,]#delete the gene has all less than 10 exression
 
-for(i in 1:length(expression3)) {
-  expression3[is.na(expression3[, i]), i] <- mean(expression3[, i], na.rm = T)
+for(i in 1:length(expression4)) {
+  expression4[is.na(expression4[, i]), i] <- mean(expression4[, i], na.rm = T)
 }#replace NA to mean of its sample expression
 
 
@@ -79,7 +79,7 @@ mod0 = cbind(mod1[,1])
 
 #my_n_sv = num.sv(expression4,mod1,method="be")#0
 #my_n_sv = num.sv(expression4,mod1,method="leek")#160
-my_svseq = svaseq(expression4,mod1,mod0)
+my_svseq = svaseq(as.matrix(expression4),mod1,mod0)
 my_sv<-my_svseq$sv
 
 #-- Plot
@@ -100,8 +100,8 @@ cleaningY = function(y, mod, svaobj) {
 }
 
 svaseq_removed = cleaningY(expression4, mod1, my_svseq)
-pca = prcomp(t(svaseq_removed), scale=TRUE)
-plot(pca$x[,1], pca$x[,2],col=color)
+pca = prcomp(t(svaseq_removed), scale=FALSE)
+ggplot(data.frame(pca$x[,1:2],point_color),aes(pca$x[,1],pca$x[,2],colour=point_color)) + geom_point(shape=16,size=1)
 
 
 
@@ -155,12 +155,12 @@ x = voles.mds_3$points[,1]
 y = voles.mds_3$points[,2]
 point_color=c(rep("P1",length(Project1_id)),rep("P2",length(Project2_id)),rep("P3",length(Project3_id)))
 p=ggplot(data.frame(x,y,point_color),aes(x,y,label = colnames(a3),colour=point_color))+
-  geom_point(shape=16,size=2)
+  geom_point(shape=16,size=1)
 ggsave(
   filename = 'MDS_svaseq.pdf',
   plot = p,
   device = 'pdf',
-  path = '/data/liull/immune-checkpoint-blockade/batch_effect/',
+  path = '/data/liull/immune-checkpoint-blockade/batch_effect/PD1/',
   width = 6,
   height = 6.8
 )
@@ -175,7 +175,7 @@ ggsave(
   filename = 'PCA_before.pdf',
   plot = PCA_plot,
   device = 'pdf',
-  path = '/data/liull/immune-checkpoint-blockade/batch_effect/',
+  path = '/data/liull/immune-checkpoint-blockade/batch_effect/PD1/',
   width = 6,
   height = 6.8
 )
@@ -187,18 +187,18 @@ ggsave(
   filename = 'PCA_ComBat.pdf',
   plot = PCA_plot,
   device = 'pdf',
-  path = '/data/liull/immune-checkpoint-blockade/batch_effect/',
+  path = '/data/liull/immune-checkpoint-blockade/batch_effect/PD1/',
   width = 6,
   height = 6.8
 )
 #svaseq
 pca_result <- prcomp(t(svaseq_removed),scale=T) 
-ggplot(data.frame(pca_result$x[,1:2],point_color),aes(pca_result$x[,1],pca_result$x[,2],label = colnames(combat_edata),colour=point_color)) + geom_point(shape=16,size=1)->PCA_plot
+ggplot(data.frame(pca_result$x[,1:2],point_color),aes(pca_result$x[,1],pca_result$x[,2],label = colnames(expression4),colour=point_color)) + geom_point(shape=16,size=1)->PCA_plot
 ggsave(
   filename = 'PCA_svaseq.pdf',
   plot = PCA_plot,
   device = 'pdf',
-  path = '/data/liull/immune-checkpoint-blockade/batch_effect/',
+  path = '/data/liull/immune-checkpoint-blockade/batch_effect/PD1/',
   width = 6,
   height = 6.8
 )
