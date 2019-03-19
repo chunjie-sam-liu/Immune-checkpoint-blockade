@@ -52,9 +52,9 @@ colnames(result)[1]="ensembl_ID"
 write.table(result,"/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer/gastric_cancer_PD1_DEG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#write all genes' difference
 
 dplyr::filter(as.data.frame(result),p_value<=0.05) %>%
-  dplyr::filter(FC>=2) -> up#71
+  dplyr::filter(FC>=2) -> up#90
 dplyr::filter(as.data.frame(result),p_value<=0.05) %>%
-  dplyr::filter(FC<=0.5) -> down#2525
+  dplyr::filter(FC<=0.5) -> down#1111
 
 read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",sep="\t",header = T,as.is = TRUE) ->relationship
 merge(relationship,up,by.x="EnsemblId",by.y="ensembl_ID",all=TRUE)%>%
@@ -69,13 +69,13 @@ write.table(down2,"/data/liull/immune-checkpoint-blockade/different_expression/g
 
 #GO enrichment
 enrichGO(gene = up2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 0.05,readable = TRUE)->ego_up#3
-dotplot(ego_up)
+dotplot(ego_up,showCategory=20)->ego_up_plot
 enrichGO(gene = down2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "BH",pvalueCutoff = 0.05,readable = TRUE)->ego_down#55
 dotplot(ego_down,showCategory=20)->ego_down_plot
 ggsave(
-  filename = 'gastric_cancer_PD1_down_GOenrich.png',
-  plot = ego_down_plot,
-  device = 'png',
+  filename = 'gastric_cancer_PD1_up_GOenrich.pdf',
+  plot = ego_up_plot,
+  device = 'pdf',
   path = '/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer',
   width = 12,
   height = 8
@@ -95,9 +95,18 @@ write.table(down_enrichKEGG,"/data/liull/immune-checkpoint-blockade/different_ex
 
 #Reactome enrichment------------------------------------------------------------
 enrichPathway(gene=up2$GeneID,pvalueCutoff=0.05, readable=T)->eReactome_up#4
-dotplot(eReactome_up, showCategory=4)
+dotplot(eReactome_up, showCategory=20)->Reactome_up_plot
 enrichPathway(gene=down2$GeneID,pvalueCutoff=0.05, readable=T)->eReactome_down#10
-dotplot(eReactome_down, showCategory=10)
+dotplot(eReactome_down, showCategory=20)->Reactome_down_plot
+
+ggsave(
+  filename = 'gastric_cancer_PD1_down_Reactome.pdf',
+  plot = Reactome_down_plot,
+  device = 'pdf',
+  path = '/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer/',
+  width = 12,
+  height = 8
+)
 write.table(as.data.frame(eReactome_up),"/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer/up_enrichReactome.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 write.table(as.data.frame(eReactome_down),"/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer/down_enrichReactome.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 
