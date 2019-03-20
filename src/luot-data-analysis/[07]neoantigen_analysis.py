@@ -2,6 +2,7 @@ import os
 import re
 import glob
 import copy
+import xlwt
 import numpy as np
 import pandas as pd 
 from collections import Counter
@@ -108,27 +109,55 @@ Melanoma_PD1=Filter['melanoma','anti-PD1']
 CR_PR_Lungcancer=LungCancer[['Run']][LungCancer.Response_type=='PR']
 PD_Lungcancer=LungCancer[['Run']][LungCancer.Response_type=='PD']
 SD_Lungcancer=LungCancer[['Run']][LungCancer.Response_type=='SD']
+LTB_Melanoma_CTLA4=Melanoma_CTLA4[['Run']][Melanoma_CTLA4.Response_type=='long-term-benefit']
+MONB_Melanoma_CTLA4=Melanoma_CTLA4[['Run']][Melanoma_CTLA4.Response_type=='minimal-or-no-benefit']
+CR_PR_Melanoma_PD1=Melanoma_PD1[['Run']][(Melanoma_PD1.Response_type=='CR') |(Melanoma_PD1.Response_type=='PR') ]
+PD_Melanoma_PD1=Melanoma_PD1[['Run']][Melanoma_PD1.Response_type=='PD' ]
+
+
 #Set CR and PR as CR/PR
 CR_PR_Lungcancer['Response_type']='CR/PR'   #Response type for box1 is PR
 PD_Lungcancer['Response_type']='PD'
 SD_Lungcancer['Response_type']='SD'
-CR_PR_Lungcancer=CR_PR_Lungcancer.reset_index(drop=True)#重置索引
-PD_Lungcancer=PD_Lungcancer.reset_index(drop=True)
-SD_Lungcancer=SD_Lungcancer.reset_index(drop=True)
+LTB_Melanoma_CTLA4['Response_type']='long-term-benefit'
+MONB_Melanoma_CTLA4['Response_type']='minimal-or-no-benefit'
+CR_PR_Melanoma_PD1['Response_type']='CR/PR'
+PD_Melanoma_PD1['Response_type']='PD'
+
 
 def combine(tmp_dict,tmp_d):#结合同一类sample的信息,返回一个字典
-    tmp=tmp_dict[tmp_d.loc[0,"Run"]]
+    tmp=tmp_dict[tmp_d.iloc[0,0]]
     for s_id in tmp_d["Run"]:
-        if (s_id==tmp_d.loc[0,"Run"]):
+        if (s_id==tmp_d.iloc[0,0]):
             continue
-        tmp=dict(Counter(tmp)+Counter(tmp_dict[s_id]))
+        if s_id in tmp_dict.keys(): #某些文件为空，所以部分Sample id 会有可能找不到
+            tmp=dict(Counter(tmp)+Counter(tmp_dict[s_id]))
     return (tmp)
 
     
 CR_PR_Hla_dict_lungcancer=combine(hla_dict,CR_PR_Lungcancer)
 PD_Hla_dict_dict_lungcancer=combine(hla_dict,PD_Lungcancer)
 SD_Hla_dict_dict_lungcancer=combine(hla_dict,SD_Lungcancer)
+CR_PR_Neoantigen_dict_lungcancer=combine(neoantigen_dict,CR_PR_Lungcancer)
+PD_Neoantigen_dict_lungcancer=combine(neoantigen_dict,PD_Lungcancer)
+SD_Neoantigen_dict_lungcancer=combine(neoantigen_dict,SD_Lungcancer)
+CR_PR_Protein_source_dict_lungcancer=combine(protein_source_dict,CR_PR_Lungcancer)
+PD_Protein_source_dict_lungcancer=combine(protein_source_dict,PD_Lungcancer)
+SD_Protein_source_dict_lungcancer=combine(protein_source_dict,SD_Lungcancer)
 
+LTB_Hla_dict_Melanoma_CTLA4=combine(hla_dict,LTB_Melanoma_CTLA4)
+MONB_Hla_dict_Melanoma_CTLA4=combine(hla_dict,MONB_Melanoma_CTLA4)
+LTB_Neoantigen_dict_Melanoma_CTLA4=combine(neoantigen_dict,LTB_Melanoma_CTLA4)
+MONB_Neoantigen_dict_Melanoma_CTLA4=combine(neoantigen_dict,MONB_Melanoma_CTLA4)
+LTB_Protein_source_dict_Melanoma_CTLA4=combine(protein_source_dict,LTB_Melanoma_CTLA4)
+MONB_Protein_source_dict_Melanoma_CTLA4=combine(protein_source_dict,MONB_Melanoma_CTLA4)
+
+CR_PR_Hla_dict_Melanoma_PD1=combine(hla_dict,CR_PR_Melanoma_PD1)
+PD_Hla_dict_Melanoma_PD1=combine(hla_dict,PD_Melanoma_PD1)
+CR_PR_Neoantigen_dict_Melanoma_PD1=combine(neoantigen_dict,CR_PR_Melanoma_PD1)
+PD_Neoantigen_dict_Melanoma_PD1=combine(neoantigen_dict,PD_Melanoma_PD1)
+CR_PR_Protein_source_dict_Melanoma_PD1=combine(protein_source_dict,CR_PR_Melanoma_PD1)
+PD_Protein_source_dict_Melanoma_PD1=combine(protein_source_dict,PD_Melanoma_PD1)
 
 def get_significant_values(response01_dict,response02_dict): #返回不同类型的有差异的部分
     result={}
@@ -144,10 +173,43 @@ def get_significant_values(response01_dict,response02_dict): #返回不同类型
     return (result)
 
 
+lungcancer_hla_cr_pr_pd=get_significant_values(CR_PR_Hla_dict_lungcancer,PD_Hla_dict_dict_lungcancer)
+lungcancer_hla_cr_pr_sd=get_significant_values(CR_PR_Hla_dict_lungcancer,SD_Hla_dict_dict_lungcancer)
+lungcancer_neoantigen_cr_pr_pd=get_significant_values(CR_PR_Neoantigen_dict_lungcancer,PD_Neoantigen_dict_lungcancer)
+lungcancer_neoantigen_cr_pr_sd=get_significant_values(CR_PR_Neoantigen_dict_lungcancer,SD_Neoantigen_dict_lungcancer)
+lungcancer_protein_source_cr_pr_pd=get_significant_values(CR_PR_Protein_source_dict_lungcancer,PD_Protein_source_dict_lungcancer)
+lungcancer_protein_source_cr_pr_sd=get_significant_values(CR_PR_Protein_source_dict_lungcancer,SD_Protein_source_dict_lungcancer)
+
+Melanoma_CTLA4_hla_ltb_monb=get_significant_values(LTB_Hla_dict_Melanoma_CTLA4,MONB_Hla_dict_Melanoma_CTLA4)
+Melanoma_CTLA4_neoantigen_ltb_monb=get_significant_values(LTB_Neoantigen_dict_Melanoma_CTLA4,MONB_Neoantigen_dict_Melanoma_CTLA4)
+Melanoma_CTLA4_protein_source_ltb_monb=get_significant_values(LTB_Protein_source_dict_Melanoma_CTLA4,MONB_Protein_source_dict_Melanoma_CTLA4)
+
+Melanoma_PD1_hla_cr_pr_pd=get_significant_values(CR_PR_Hla_dict_Melanoma_PD1,PD_Hla_dict_Melanoma_PD1)
+Melanoma_PD1_neoantigen_cr_pr_pd=get_significant_values(CR_PR_Neoantigen_dict_Melanoma_PD1,PD_Neoantigen_dict_Melanoma_PD1)
+Melanoma_PD1_protein_source_cr_pr_pd=get_significant_values(CR_PR_Protein_source_dict_Melanoma_PD1,PD_Protein_source_dict_Melanoma_PD1)
+
+def write_to_excel(t_dict,name):  #将结果写入Excel文档
+    wbk = xlwt.Workbook()
+    sheet = wbk.add_sheet('sheet 1')
+    for ca,i in zip(t_dict.keys(),range(len(t_dict))):
+        sheet.write(i,0,ca)
+        sheet.write(i,1,t_dict[ca][0])
+        sheet.write(i,2,t_dict[ca][1])
+    wbk.save("./result/"+name+'.xls')
+    print(name+" write to excel!")
 
 
+write_to_excel(lungcancer_hla_cr_pr_pd,"lungcancer_hla_cr_pr_pd")
+write_to_excel(lungcancer_hla_cr_pr_sd,"lungcancer_hla_cr_pr_sd")
+write_to_excel(lungcancer_neoantigen_cr_pr_pd,"lungcancer_neoantigen_cr_pr_pd")
+write_to_excel(lungcancer_neoantigen_cr_pr_sd,"lungcancer_neoantigen_cr_pr_sd")
+write_to_excel(lungcancer_protein_source_cr_pr_pd,"lungcancer_protein_source_cr_pr_pd")
+write_to_excel(lungcancer_protein_source_cr_pr_sd,"lungcancer_protein_source_cr_pr_sd")
 
+write_to_excel(Melanoma_CTLA4_hla_ltb_monb,"Melanoma_CTLA4_hla_ltb_monb")
+write_to_excel(Melanoma_CTLA4_neoantigen_ltb_monb,"Melanoma_CTLA4_neoantigen_ltb_monb")
+write_to_excel(Melanoma_CTLA4_protein_source_ltb_monb,"Melanoma_CTLA4_protein_source_ltb_monb")
 
-
-
-
+write_to_excel(Melanoma_PD1_hla_cr_pr_pd,"Melanoma_PD1_hla_cr_pr_pd")
+write_to_excel(Melanoma_PD1_neoantigen_cr_pr_pd,"Melanoma_PD1_neoantigen_cr_pr_pd")
+write_to_excel(Melanoma_PD1_protein_source_cr_pr_pd,"Melanoma_PD1_protein_source_cr_pr_pd")
