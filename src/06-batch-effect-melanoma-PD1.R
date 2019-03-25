@@ -49,12 +49,12 @@ Sum_zero=apply(expression2,1,function(x) sum(as.numeric(x),na.rm = TRUE))
 IDs_zero=which(Sum_zero==0)
 expression3=expression2[-IDs_zero,]#delete the gene has all 0.000 depression
 
-a=1:nrow(expression3)
-for(j in 1:length(expression3)){
-  which(expression3[,j]<10) ->b
-  intersect(a,b)->a
-}
-expression4=expression3[-a,]#delete the gene has all less than 10 exression
+# a=1:nrow(expression3)
+# for(j in 1:length(expression3)){
+#   which(expression3[,j]<10) ->b
+#   intersect(a,b)->a
+# }
+# expression4=expression3[-a,]#delete the gene has all less than 10 exression
 
 for(i in 1:length(expression4)) {
   expression4[is.na(expression4[, i]), i] <- mean(expression4[, i], na.rm = T)
