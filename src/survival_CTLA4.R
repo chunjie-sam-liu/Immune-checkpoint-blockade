@@ -2,7 +2,7 @@ library(survminer)
 library(survival)
 #
 
-read.table("/data/liull/immune-checkpoint-blockade/different_expression/melanoma/melanoma_PD1_removed_batch_expression.txt",header = T,as.is = TRUE)->expr  #PD1 or CTLA4
+read.table("/data/liull/immune-checkpoint-blockade/different_expression/melanoma/melanoma_CTLA4_removed_batch_expression.txt",header = T,as.is = TRUE)->expr  # CTLA4
 cbind(rownames(expr),expr)->expr
 colnames(expr)[1]="ensembl_ID"
 read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",sep="\t",header = T,as.is = TRUE) ->relationship
@@ -26,7 +26,7 @@ union(Collagen_deg,ECM_deg) %>% union(ECM_org) %>% union(Collagen_form) %>%
 
 
 
-readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="SRA") %>%
+readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="dbGAP") %>%
   dplyr::filter(Library_strategy=="RNA-Seq") %>%
   dplyr::filter(Survival_time != "NA")%>%
   dplyr::filter(Biopsy_Time=="pre-treatment")%>%###
@@ -51,7 +51,7 @@ for (j in 1:nrow(Combined_data)) {
     Combined_data$Survival_status[j]="2"
   }else {
     Combined_data$Survival_status[j]="1"
-    }
+  }
 }
 
 for (j in 1:nrow(Combined_data)) {
@@ -66,6 +66,7 @@ Combined_data$Survival_time=as.numeric(Combined_data$Survival_time)
 Combined_data$Survival_status=as.numeric(Combined_data$Survival_status)
 Combined_data$Age=as.numeric(Combined_data$Age)
 Combined_data$Gender=as.numeric(Combined_data$Gender)
+
 
 
 
@@ -104,66 +105,7 @@ colnames(filter_res)[1]="gene_symbol"
 filter_res %>%
   dplyr::filter(p.value<=0.05)%>%
   dplyr::select(gene_symbol)->gene_symbol
-write.table(gene_symbol,"/data/liull/immune-checkpoint-blockade/survival/PD1_survival_symbol.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+write.table(gene_symbol,"/data/liull/immune-checkpoint-blockade/survival/CTLA4_survival_symbol.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 
 #Multivariate Cox regression analysis for significant gene_symbol
 Multi_cox <- coxph(Surv(Survival_time, Survival_status) ~ COL16A1 + PIR + PDGFB + P3H3 +MFAP2 +TGFB3 + SERPINH1 + HTRA1 + UBE2E3 + CAPN12 + MMP17, data =  Combined_data)
-#summary(res.cox)
-
-
-#significant symbols' expression
-Combined_data %>%
-  dplyr::select(Run,as.character(gene_symbol$gene_symbol)) ->sig_gene_expr
-sig_gene_expr=sig_gene_expr[,-1]
-nrow(sig_gene_expr)
-frame_to_plots=data.frame()
-temp=NULL
-for (i in 1:length(colnames(sig_gene_expr))) {
-  cbind(sig_gene_expr[,i],rep(colnames(sig_gene_expr)[i],nrow(sig_gene_expr)))->temp
-  rbind(frame_to_plots,temp)->frame_to_plots
-}
-
-frame_to_plots$V1=as.numeric(as.character(frame_to_plots$V1))
-frame_to_plots$V2=as.character(frame_to_plots$V2)
-colnames(frame_to_plots)=c("expression","Symbol")
-frame_to_plots$expression[which(frame_to_plots$expression[]<0)]=0.1
-frame_to_plots$expression=log2(frame_to_plots$expression)
-
-ggboxplot(frame_to_plots, x="Symbol", y="expression", color = "Symbol")->PD1_symbl_expr
-ggsave(
-  filename = 'boxplot_PD1_symbl_expr.pdf',
-  plot = PD1_symbl_expr,
-  device = 'pdf',
-  path = '/data/liull/immune-checkpoint-blockade/survival',
-  width = 6,
-  height = 6.8
-)
-
-
-#plot the survival plot
-Combined_data %>%
-  dplyr::select(Run,Survival_time,Survival_status,as.character(gene_symbol[,1]))->Combined_data_2
-
-Mean=apply(Combined_data_2[,4:ncol(Combined_data_2)], 1,function(x) mean(x))
-Combined_data_2 %>%
-  dplyr::mutate(Mean=Mean) %>%
-  dplyr::mutate(Class=rep("class",nrow(Combined_data_2)))%>%
-  dplyr::select(Run,Survival_time,Survival_status,Mean,Class)->Combined_data_3
-
-cutoff=mean(Mean)
-
-
-for (i in 1:nrow(Combined_data_3)) {
-  if(Combined_data_3$Mean[i]>=cutoff){
-    Combined_data_3$Class[i]="high"
-  }else {
-    Combined_data_3$Class[i]="low"
-  }
-}
-
-
-fit <- survfit(Surv(Survival_time, Survival_status) ~ Class, data = Combined_data_3)
-pdf(file = "/data/liull/immune-checkpoint-blockade/survival/survival_melanoma_PD1.pdf")
-ggsurvplot(fit, data = Combined_data_3, pval = TRUE,risk.table = TRUE,risk.table.col = "strata")
-dev.off()
-

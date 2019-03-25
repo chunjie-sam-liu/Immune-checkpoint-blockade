@@ -25,23 +25,23 @@ SRA %>%
   dplyr::filter(Cancer=="melanoma") %>%
   dplyr::filter(Anti_target=="anti-PD1") %>%
   dplyr::filter(Biopsy_Time=="pre-treatment")%>%###
-  dplyr::select(SRA_Study,Run,Response) ->metadata
+  dplyr::select(SRA_Study,Run,Response) ->PD1_metadata
 
 #select and order profile--response~nonresponse
-dplyr::filter(metadata,Response %in% c("CR","PR","PRCR","R")) -> response#26
-dplyr::filter(metadata,Response %in% c("SD","PD","NR")) -> non_response#59
+dplyr::filter(PD1_metadata,Response %in% c("CR","PR","PRCR","R")) -> PD1_response#26
+dplyr::filter(PD1_metadata,Response %in% c("SD","PD","NR")) -> PD1_non_response#59
 
 #
 relationship %>%
   merge(PD1_expr)%>%
   dplyr::filter(Symbol %in% PD1_symbol$gene_symbol)%>%
-  dplyr::select(Symbol,response$Run,non_response$Run)->symbol_expr
+  dplyr::select(Symbol,PD1_response$Run,PD1_non_response$Run)->PD1_symbol_expr
 
-rownames(symbol_expr)=symbol_expr$Symbol
-symbol_expr[,-1]->symbol_expr
-annotation_col = data.frame(SampleClass = factor(rep(c("response", "non-response"), c(nrow(response),nrow(non_response)))))
-rownames(annotation_col)=colnames(symbol_expr)
-pheatmap(symbol_expr, annotation_col = annotation_col,cluster_cols = FALSE,scale="column")->PD1_survival_plot
+rownames(PD1_symbol_expr)=PD1_symbol_expr$Symbol
+PD1_symbol_expr[,-1]->PD1_symbol_expr
+annotation_col = data.frame(SampleClass = factor(rep(c("response", "non-response"), c(nrow(PD1_response),nrow(PD1_non_response)))))
+rownames(annotation_col)=colnames(PD1_symbol_expr)
+pheatmap(PD1_symbol_expr, annotation_col = annotation_col,scale="row")->PD1_survival_plot
 ggsave(
   filename = 'PD1_survival_heatmap.pdf',
   plot = PD1_survival_plot,
@@ -59,23 +59,23 @@ SRA %>%
   dplyr::filter(Cancer=="melanoma") %>%
   dplyr::filter(Anti_target=="anti-CTLA4") %>%
   dplyr::filter(Biopsy_Time=="pre-treatment")%>%###
-  dplyr::select(SRA_Study,Run,Response) ->metadata
+  dplyr::select(SRA_Study,Run,Response) ->CTLA4_metadata
 
 #select and order profile--response~nonresponse
-dplyr::filter(metadata,Response %in% c("CR","PR","PRCR","R")) -> response#37
-dplyr::filter(metadata,Response %in% c("SD","PD","NR")) -> non_response#7
+dplyr::filter(CTLA4_metadata,Response %in% c("CR","PR","PRCR","R")) -> CTLA4_response#37
+dplyr::filter(CTLA4_metadata,Response %in% c("SD","PD","NR")) -> CTLA4_non_response#7
 
 #
 relationship %>%
   merge(CTLA4_expr)%>%
   dplyr::filter(Symbol %in% CTLA4_symbol$gene_symbol)%>%
-  dplyr::select(Symbol,response$Run,non_response$Run)->symbol_expr
+  dplyr::select(Symbol,CTLA4_response$Run,CTLA4_non_response$Run)->CTLA4_symbol_expr
 
-rownames(symbol_expr)=symbol_expr$Symbol
-symbol_expr[,-1]->symbol_expr
-annotation_col = data.frame(SampleClass = factor(rep(c("response", "non-response"), c(nrow(response),nrow(non_response)))))
-rownames(annotation_col)=colnames(symbol_expr)
-pheatmap(symbol_expr, annotation_col = annotation_col,cluster_cols = FALSE,scale="column")->CTLA4_survival_plot
+rownames(CTLA4_symbol_expr)=CTLA4_symbol_expr$Symbol
+CTLA4_symbol_expr[,-1]->CTLA4_symbol_expr
+annotation_col = data.frame(SampleClass = factor(rep(c("response", "non-response"), c(nrow(CTLA4_response),nrow(CTLA4_non_response)))))
+rownames(annotation_col)=colnames(CTLA4_symbol_expr)
+pheatmap(CTLA4_symbol_expr, annotation_col = annotation_col,scale="row")->CTLA4_survival_plot#cluster_cols = FALSE
 ggsave(
   filename = 'CTLA4_survival_heatmap.pdf',
   plot = CTLA4_survival_plot,
