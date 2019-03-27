@@ -35,10 +35,10 @@ write.table(result,"/data/liull/immune-checkpoint-blockade/different_expression/
 
 
 dplyr::filter(as.data.frame(result),p_value<=0.05) %>%
-  dplyr::filter(diff.avg>=2) -> up
+  dplyr::filter(diff.avg>=2) -> up#36
 
 dplyr::filter(as.data.frame(result),p_value<=0.05) %>%
-  dplyr::filter(diff.avg<=-2) -> down
+  dplyr::filter(diff.avg<=-2) -> down#78
 
 read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",sep="\t",header = T,as.is = TRUE) ->relationship
 merge(relationship,up,by.x="EnsemblId",by.y="ensembl_ID",all=TRUE)%>%
@@ -95,33 +95,37 @@ write.table(as.data.frame(eReactome_down),"/data/liull/immune-checkpoint-blockad
 
 
 
-#heatmap for down-gene(p<0.01)----------------------------------------------------------
-#dplyr::filter(down,p_value<=0.01) %>%
-#  dplyr::filter(diff.avg<=-2)-> down_for_map
-#rownames(down_for_map)=down_for_map[,3]
-#heatmap(as.matrix(down_for_map[,4:(ncol(down_for_map)-4)]),Colv=NA,ColSideColors=c(rep("purple", 44), rep("orange", 117)),col=colorRampPalette(c("green", "black","red"))(256),cexRow = 0.3,cexCol = 0.2)
 
 #Heatmap(ComplexHeatmap)
-read.table("/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/up.txt",sep="\t",header = T,as.is = TRUE) ->up
-rownames(up)=up[,1]
-up[order(up$p_value,decreasing=T),]->up2#diff.avg ordered from large to small
-up2[,4:(ncol(up2)-4)] -> up2
-up2[1:10,] %>% apply(2,function(x) scale(x)) ->a
-rownames(a)=rownames(up2)[1:10]
-Heatmap(as.matrix(a),cluster_columns = FALSE,column_names_gp = gpar(fontsize = 2))
+rbind(up,down)->all_genes
+rownames(all_genes)=all_genes$ensembl_ID
+all_genes[,-c(1,(ncol(all_genes)-4),(ncol(all_genes)-3),(ncol(all_genes)-2),(ncol(all_genes)-1),(ncol(all_genes)))]->all_genes
+
+apply(all_genes, 1, scale) ->scared_all_genes
+rownames(scared_all_genes)=colnames(all_genes)
+scared_all_genes=t(scared_all_genes)
+
+Heatmap(scared_all_genes,cluster_columns = FALSE,column_names_gp = gpar(fontsize = 3),row_names_gp = gpar(fontsize = 3))
 
 
-c(rep("1",44),rep("0",117)) %>% as.matrix() ->label
-up3=rbind(label[,1],up2)
-up3=as.data.frame(t(up3))
-annot_up <- data.frame(response_VS_none = up3$`1`)
-colors = list(response_VS_none = c("1" = "green", "0" = "gray"))
+#add labels
+rbind(as.matrix(c(rep("response",nrow(response)),rep("non_response",nrow(non_response))))[,1],all_genes) %>%
+  t()%>%
+  as.data.frame()->labels
+annot_up <- data.frame(response_VS_none = labels$`1`)
+colors = list(response_VS_none = c("response" = "red", "non_response" = "blue"))
 ha <- HeatmapAnnotation(annot_up, col = colors)
-Heatmap(as.matrix(a),column_names_gp = gpar(fontsize = 2),top_annotation = ha,cluster_columns = FALSE)#Heatmap for ten top P
 
-rownames(down2)=down2$EnsemblId
-down2[,-c(1,2,3,(ncol(down2)-3),(ncol(down2)-2),(ncol(down2)-1),(ncol(down2)))]->a
-annotation_col = data.frame(GeneClass = factor(rep(c("response", "non-response"), c(length(response_expression),length(non_response_expression)))))
-rownames(annotation_col)=colnames(a)
-pheatmap(a, annotation_col = annotation_col,cluster_cols = FALSE,scale="column")
+pdf(file="/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/pretreatment/heatmap.pdf")
+Heatmap(scared_all_genes,column_names_gp = gpar(fontsize = 3),row_names_gp = gpar(fontsize = 3),top_annotation = ha,cluster_columns = FALSE)
+dev.off()
+
+# #pheatmap
+# 
+# rbind(up,down)->all_genes
+# rownames(all_genes)=all_genes$ensembl_ID
+# all_genes[,-c(1,(ncol(all_genes)-4),(ncol(all_genes)-3),(ncol(all_genes)-2),(ncol(all_genes)-1),(ncol(all_genes)))]->all_genes
+# annotation_col = data.frame(GeneClass = factor(rep(c("response", "non-response"), c(nrow(response),nrow(non_response)))))
+# rownames(annotation_col)=colnames(all_genes)
+# pheatmap(all_genes, annotation_col = annotation_col,cluster_cols = FALSE,scale="row")
 
