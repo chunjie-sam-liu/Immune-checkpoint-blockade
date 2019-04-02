@@ -1,10 +1,11 @@
 #ComBat--------------------------------------------------------------------------------------
 library(magrittr)
-library(readr)
 library(readxl)
-library(dplyr)
 library(clusterProfiler)
-
+library(ComplexHeatmap)
+library(circlize)
+library(sva)
+library(org.Hs.eg.db)
 
 #filter melanoma RNA-seq anti-PD1
 readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="SRA") %>%
@@ -124,18 +125,39 @@ apply(expr_heatmap, 1, scale) ->scaled_expr
 rownames(scaled_expr)=colnames(expr_heatmap)
 scaled_expr=t(scaled_expr)
 
+
 df = data.frame(type = c(rep("response", nrow(response)), rep("non_response", nrow(non_response))))
 ha = HeatmapAnnotation(df = df,col = list(type = c("response" =  "tomato", "non_response" = "steelblue")))
 
 
-pdf(file="/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/heatmap.pdf")
-Heatmap(scaled_expr,name="Color_key",top_annotation = ha,cluster_columns = FALSE,column_names_gp = gpar(fontsize = 2),row_names_gp = gpar(fontsize = 1))
+pdf(file="/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/heatmap_black.pdf")
+Heatmap(scaled_expr,name="Color_key",top_annotation = ha,cluster_columns = FALSE,column_names_gp = gpar(fontsize = 2),row_names_gp = gpar(fontsize = 1),col=colorRamp2(c(-4, 0, 4), c("green", "black", "red")))->origin_heatmap
+dev.off()
+
+# sum(rowSums(scaled_expr>3.5))#96
+# sum(rowSums(scaled_expr<(-3.5)))#17
+# sum(rowSums(scaled_expr>3))#  214
+# sum(rowSums(scaled_expr< -3))#  58
+# sum(rowSums(scaled_expr>2))#1188
+# sum(rowSums(scaled_expr<(-2)))#662
+
+# second heatmap
+
+new_scaled_expr <- scaled_expr[row_order(origin_heatmap)[[1]],]
+
+for(i in 1:ncol(new_scaled_expr)) {
+  m <- which(new_scaled_expr[,i]>2)
+  new_scaled_expr[m,i] <- 2
+  n <- which(new_scaled_expr[,i]<(-2))
+  new_scaled_expr[n,i] <- (-2)
+}
+pdf(file="/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/heatmap_black_2.pdf")
+Heatmap(new_scaled_expr,name="Color_key",top_annotation = ha,cluster_columns = FALSE,cluster_rows = FALSE,column_names_gp = gpar(fontsize = 2),row_names_gp = gpar(fontsize = 1),col=colorRamp2(c(-2, 0, 2), c("green", "black", "red")))
 dev.off()
 
 
-#GO KEGG enrichment-----------------------------------------------
-library(clusterProfiler)
 
+#GO KEGG enrichment-----------------------------------------------
 read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",sep="\t",header = T,as.is = TRUE) ->relationship
 merge(relationship,up,by.x="Ensembl_ID",by.y="rowname",all=TRUE)%>%
   dplyr::filter(Ensembl_ID %in% up$rowname) ->up2
