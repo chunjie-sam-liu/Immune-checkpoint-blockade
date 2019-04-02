@@ -41,10 +41,10 @@ dplyr::filter(as.data.frame(result),p_value<=0.05) %>%
   dplyr::filter(diff.avg<=-2) -> down#78
 
 read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",sep="\t",header = T,as.is = TRUE) ->relationship
-merge(relationship,up,by.x="EnsemblId",by.y="ensembl_ID",all=TRUE)%>%
-  dplyr::filter(EnsemblId %in% up$ensembl_ID) ->up2
-merge(relationship,down,by.x="EnsemblId",by.y="ensembl_ID",all=TRUE)%>%
-  dplyr::filter(EnsemblId %in% down$ensembl_ID) ->down2
+merge(relationship,up,by.x="Ensembl_ID",by.y="ensembl_ID",all=TRUE)%>%
+  dplyr::filter(Ensembl_ID %in% up$ensembl_ID) ->up2
+merge(relationship,down,by.x="Ensembl_ID",by.y="ensembl_ID",all=TRUE)%>%
+  dplyr::filter(Ensembl_ID %in% down$ensembl_ID) ->down2
 write.table(up2,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/pretreatment/up.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 write.table(down2,"/data/liull/immune-checkpoint-blockade/different_expression/melanoma/PD1/pretreatment/down.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 
