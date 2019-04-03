@@ -6,6 +6,7 @@ library(ComplexHeatmap)
 library(circlize)
 library(sva)
 library(org.Hs.eg.db)
+library(ggplot2)
 
 #filter melanoma RNA-seq anti-PD1
 readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="SRA") %>%
@@ -82,7 +83,7 @@ output <- topTable(fit2, coef=2, n=Inf)
 tibble::rownames_to_column(output) %>% dplyr::filter(P.Value<0.05) %>% dplyr::filter(logFC>1)->up
 tibble::rownames_to_column(output) %>% dplyr::filter(P.Value<0.05) %>% dplyr::filter(logFC< -1)->down
 
-
+write.table(output,"/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/PD1_all_DEG.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
 write.table(up,"/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/PD1_up.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
 write.table(down,"/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/PD1_down.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
 
@@ -129,7 +130,6 @@ scaled_expr=t(scaled_expr)
 df = data.frame(type = c(rep("response", nrow(response)), rep("non_response", nrow(non_response))))
 ha = HeatmapAnnotation(df = df,col = list(type = c("response" =  "tomato", "non_response" = "steelblue")))
 
-
 pdf(file="/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/heatmap_black.pdf")
 Heatmap(scaled_expr,name="Color_key",top_annotation = ha,cluster_columns = FALSE,column_names_gp = gpar(fontsize = 2),row_names_gp = gpar(fontsize = 1),col=colorRamp2(c(-4, 0, 4), c("green", "black", "red")))->origin_heatmap
 dev.off()
@@ -155,9 +155,11 @@ pdf(file="/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/heatmap_bla
 Heatmap(new_scaled_expr,name="Color_key",top_annotation = ha,cluster_columns = FALSE,cluster_rows = FALSE,column_names_gp = gpar(fontsize = 2),row_names_gp = gpar(fontsize = 1),col=colorRamp2(c(-2, 0, 2), c("green", "black", "red")))
 dev.off()
 
+pdf(file="/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/heatmap_black_2.5.pdf")
+Heatmap(new_scaled_expr,name="Color_key",top_annotation = ha,cluster_columns = FALSE,cluster_rows = FALSE,column_names_gp = gpar(fontsize = 2),row_names_gp = gpar(fontsize = 1),col=colorRamp2(c(-2.5, 0, 2.5), c("green", "black", "red")),heatmap_legend_param=list(at= c(-2.5, 0, 2.5)))
+dev.off()
 
-
-#GO KEGG enrichment-----------------------------------------------
+#GO enrichment-----------------------------------------------
 read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",sep="\t",header = T,as.is = TRUE) ->relationship
 merge(relationship,up,by.x="Ensembl_ID",by.y="rowname",all=TRUE)%>%
   dplyr::filter(Ensembl_ID %in% up$rowname) ->up2
@@ -185,8 +187,67 @@ ggsave(
   height = 8
 )
 
+write.table(as.data.frame(ego_up),"/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/up_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#
+write.table(as.data.frame(ego_down),"/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/down_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#
 #DAVID
-read.table("/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/PD1_up_DAVID.txt",sep="\t",header = T,as.is = TRUE) -> PD1_up_DAVID
-PD1_up_DAVID %>%
-  dplyr::filter(FDR<0.05)%>%
-  dplyr::select(Category,Term,Count,PValue)
+# read.table("/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/PD1_up_DAVID.txt",sep="\t",header = T,as.is = TRUE) -> PD1_up_DAVID
+# PD1_up_DAVID %>%
+#   dplyr::filter(FDR<0.05)%>%
+#   dplyr::select(Category,Term,Count,PValue)
+
+
+
+#KEGG enrichment----------------------------------------------------------------------------------------
+enrichKEGG(gene=up2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") ->ekegg_up#
+enrichKEGG(gene=down2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH")->ekegg_down#
+dotplot(ekegg_down, showCategory=20)->KEGG_up_plot
+dotplot(ekegg_up, showCategory=20)->KEGG_down_plot
+
+ggsave(
+  filename = 'melanoma_PD1_up_KEGG.pdf',
+  plot = KEGG_up_plot,
+  device = 'pdf',
+  path = '/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/',
+  width = 12,
+  height = 8
+)
+ggsave(
+  filename = 'melanoma_PD1_down_KEGG.pdf',
+  plot = KEGG_down_plot,
+  device = 'pdf',
+  path = '/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/',
+  width = 12,
+  height = 8
+)
+
+
+write.table(as.data.frame(ekegg_up),"/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/up_enrichKEGG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+write.table(as.data.frame(ekegg_down),"/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/down_enrichKEGG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+
+
+#Reactome enrichment--------------------------------------------------------------------------------------
+library(ReactomePA)
+enrichPathway(gene=up2$GeneID,organism="human",pvalueCutoff=0.05, readable=T)->eReactome_up
+dotplot(eReactome_up, showCategory=20)->Reactome_up_plot#13
+enrichPathway(gene=down2$GeneID,organism="human",pvalueCutoff=0.05, readable=T)->eReactome_down
+dotplot(eReactome_down, showCategory=20)->Reactome_down_plot#1  Extracellular matrix organization
+
+ggsave(
+  filename = 'melanoma_PD1_up_Reactome.pdf',
+  plot = Reactome_up_plot,
+  device = 'pdf',
+  path = '/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/',
+  width = 12,
+  height = 8
+)
+ggsave(
+  filename = 'melanoma_PD1_down_Reactome.pdf',
+  plot = Reactome_down_plot,
+  device = 'pdf',
+  path = '/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/',
+  width = 12,
+  height = 8
+)
+
+write.table(as.data.frame(eReactome_up),"/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/up_enrichReactome.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+write.table(as.data.frame(eReactome_down),"/data/liull/immune-checkpoint-blockade/count_batch_DEG/PD1/down_enrichReactome.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
