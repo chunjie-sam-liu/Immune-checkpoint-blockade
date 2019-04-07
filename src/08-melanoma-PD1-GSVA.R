@@ -20,13 +20,11 @@ dplyr::filter(melanoma_PD1,Response %in% c("SD","PD","NR"))$Run ->non_response_i
 
 #load melanoma_PD1_removed_batch_expression and translate Ensembl id to symbol--------------------------------------------
 
-read.table("/data/liull/immune-checkpoint-blockade/different_expression/melanoma/melanoma_PD1_removed_batch_expression.txt",header = T,as.is = TRUE) %>% 
-  cbind(rownames(.),.)->all_expression
-colnames(all_expression)[1]="ensembl_ID"
-all_expression %>%
-  dplyr::filter(ensembl_ID %in% relationship$Ensembl_ID) %>%
-  merge(relationship[,2:3],.,by.x="Ensembl_ID",by.y="ensembl_ID") %>%
-  dplyr::select(-Ensembl_ID)%>%
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/PD1_removed_batch_expression.txt",header = T,as.is = TRUE) ->all_expression
+
+tibble::rownames_to_column(all_expression) %>%
+  dplyr::filter(rowname %in% relationship$Ensembl_ID) %>%
+  merge(relationship[,2:3],.,by.x="Ensembl_ID",by.y="rowname")%>%
   dplyr::select(Symbol,response_ids,non_response_ids)->expression
 rownames(expression) <- expression[,1]
 expression <- expression[,-1] 
@@ -37,36 +35,36 @@ expression <- expression[,-1]
 GSVA_score_c2 <- gsva(data.matrix(expression), genesets_c2, min.sz=1, max.sz=999999, method="zscore",kcdf="Gaussian", abs.ranking=FALSE, verbose=TRUE)
 
 
-#IDs=as.vector(NULL)
-#for (i in 1:nrow(ordered_GSVA)) {
-#  x=as.character(ordered_GSVA[i,])
-#  if (var(x)==0){IDs=c(IDs,i)}
-#}
-#ordered_GSVA=ordered_GSVA[-IDs,]#delete the gene sets hava too many NA expression's gene
+group_list <- factor(c(rep("response",length(response_ids)), rep("non_response",length(non_response_ids))))
+design <- model.matrix(~group_list)
+colnames(design) <- levels(group_list)
+rownames(design) <- colnames(GSVA_score_c2)
 
-avg.R=apply(GSVA_score_c2,1,function(x) median(x[1:length(response_ids)]))
-avg.NR=apply(GSVA_score_c2,1,function(x) median(x[(length(response_ids)+1):ncol(GSVA_score_c2)]))
-diff.avg=apply(GSVA_score_c2,1,function(x) (median(x[1:length(response_ids)])-median(x[(length(response_ids)+1):ncol(GSVA_score_c2)])))
-p_value=apply(GSVA_score_c2,1,function(x) t.test(x[1:length(response_ids)],x[(length(response_ids)+1):ncol(GSVA_score_c2)])$p.value)
-result=as.data.frame(cbind(GSVA_score_c2,avg.R,avg.NR,diff.avg,p_value))
+fit <- lmFit(GSVA_score_c2, design)
+fit2 <- eBayes(fit)
+output <- topTable(fit2, coef=2, n=Inf)
+tibble::rownames_to_column(output) %>% dplyr::filter(P.Value<0.05) %>% dplyr::filter(logFC>1)->up
+tibble::rownames_to_column(output) %>% dplyr::filter(P.Value<0.05) %>% dplyr::filter(logFC< -1)->down
 
-cbind(rownames(result),result) %>%
-  dplyr::filter(abs(diff.avg)>=0.1) %>%
-  dplyr::filter(p_value<=0.05)-> sig_sets
-write.table(sig_sets,"/data/liull/immune-checkpoint-blockade/GSVA/melanoma_PD1/c2_sig_sets.txt",sep="\t",quote=FALSE,col.names = TRUE,row.names = FALSE)
 
 #heatmap
-rownames(sig_sets) = sig_sets[,1]
-dplyr::select(sig_sets,2:(ncol(sig_sets)-4))->To_heatmap
 
-annotation_col = data.frame(SampleClass = factor(rep(c("response", "non-response"), c(length(response_ids),length(non_response_ids)))))
-rownames(annotation_col)=colnames(To_heatmap)
-pheatmap(To_heatmap, annotation_col = annotation_col,scale="row")->sig_sets_heatmap
-ggsave(
-  filename = 'sig_sets_heatmap.pdf',
-  plot = sig_sets_heatmap,
-  device = 'pdf',
-  path = '/data/liull/immune-checkpoint-blockade/GSVA/melanoma_PD1',
-  width = 18,
-  height = 10
-)
+rbind(up,down)->all_gene_sets
+write.table(all_gene_sets,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/GSVA/c2_sig_sets.txt",sep="\t",quote=FALSE,col.names = TRUE,row.names = FALSE)
+
+tibble::rownames_to_column(as.data.frame(GSVA_score_c2))%>%
+  dplyr::filter(rowname %in% all_gene_sets$rowname)->GSVA_score_heatmap
+rownames(GSVA_score_heatmap)=GSVA_score_heatmap$rowname
+GSVA_score_heatmap=GSVA_score_heatmap[,-1]
+
+apply(GSVA_score_heatmap, 1, scale) ->scaled_GSVA_score
+rownames(scaled_GSVA_score)=colnames(GSVA_score_heatmap)
+scaled_GSVA_score=t(scaled_GSVA_score)
+
+
+df = data.frame(type = c(rep("response", length(response_ids)), rep("non_response", length(non_response_ids))))
+ha = HeatmapAnnotation(df = df,col = list(type = c("response" =  "tomato", "non_response" = "steelblue")))
+
+pdf(file="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/GSVA/heatmap.pdf")
+Heatmap(scaled_GSVA_score,name="Color_key",top_annotation = ha,cluster_columns = FALSE,column_names_gp = gpar(fontsize = 2),row_names_gp = gpar(fontsize = 1),col=colorRamp2(c(-4, 0, 4), c("green", "black", "red")))
+dev.off()

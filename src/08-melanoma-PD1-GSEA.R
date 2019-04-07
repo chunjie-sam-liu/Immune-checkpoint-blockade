@@ -14,10 +14,11 @@ merge(relationship,t_statistic,by.x="EnsemblId",by.y="ensembl_ID")%>%
 
 gene_list=gene_t_statistic$t_statistic
 names(gene_list)=gene_t_statistic$GeneID
+ordered_gene_list <- gene_list[order(gene_list)]
 
 my_pathways <- reactomePathways(names(gene_list))
 fgsea_reactome <- fgsea(pathways = my_pathways, 
-                        stats = gene_list,
+                        stats = ordered_gene_list,
                         minSize=15,
                         maxSize=500,
                         nperm=100000)
