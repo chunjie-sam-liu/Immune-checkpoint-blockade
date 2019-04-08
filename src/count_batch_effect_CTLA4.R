@@ -58,7 +58,7 @@ metadata$Response%>%
   gsub("^X$", "R", .)->my_mod
 my_mod = model.matrix(~as.factor(my_mod))  #don't consider long term survival
 combat_edata = ComBat(dat=normalized_loggedCPM_expr, batch=batch, mod=my_mod, par.prior=TRUE, prior.plots=FALSE)
-write.table(combat_edata,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/CTLA_removed_batch_expression.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
+write.table(combat_edata,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/CTLA4_removed_batch_expression.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
 
 #DEG by limma
 dplyr::filter(metadata,Biopsy_Time=="pre-treatment")%>%
