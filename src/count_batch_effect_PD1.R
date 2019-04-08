@@ -198,7 +198,7 @@ write.table(as.data.frame(ego_down),"/data/liull/immune-checkpoint-blockade/New_
 
 
 #KEGG enrichment----------------------------------------------------------------------------------------
-enrichKEGG(gene=up2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") ->ekegg_up#
+enrichKEGG(gene=up2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH") ->ekegg_up#14
 dotplot(ekegg_up, showCategory=20)->KEGG_up_plot
 ggsave(
   filename = 'melanoma_PD1_up_KEGG.pdf',
@@ -210,7 +210,7 @@ ggsave(
 )
 
 
-enrichKEGG(gene=down2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH")->ekegg_down#
+enrichKEGG(gene=down2$GeneID,organism="human",pvalueCutoff=0.05,pAdjustMethod = "BH")->ekegg_down#1
 dotplot(ekegg_down, showCategory=20)->KEGG_down_plot
 ggsave(
   filename = 'melanoma_PD1_down_KEGG.pdf',
