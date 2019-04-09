@@ -40,7 +40,7 @@ expression=dplyr::select(data1,gene_id,Project1_id,Project2_id)
 
 row.names(expression)=expression[,1]
 expression=expression[,-1]
-#make rownames to avoid of sum wrong
+#make rownames to DGEList
 
 DGEList_expr <- DGEList(counts=expression)
 normalized_expr <- calcNormFactors(DGEList_expr, method="upperquartile")
