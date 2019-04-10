@@ -32,24 +32,36 @@ dplyr::filter(PD1_metadata,Response %in% c("CR","PR","PRCR","R")) -> PD1_respons
 dplyr::filter(PD1_metadata,Response %in% c("SD","PD","NR")) -> PD1_non_response#59
 
 #
-relationship %>%
-  merge(PD1_expr)%>%
-  dplyr::filter(Symbol %in% PD1_symbol$gene_symbol)%>%
-  dplyr::select(Symbol,PD1_response$Run,PD1_non_response$Run)->PD1_symbol_expr
+dplyr::select(PD1_expr,c("Ensembl_ID",PD1_response$Run,PD1_non_response$Run)) %>%
+  merge(relationship,.)%>%
+  dplyr::filter(Symbol %in% PD1_symbol)%>%
+  dplyr::select(-Ensembl_ID)->PD1_symbol_expr
 
 rownames(PD1_symbol_expr)=PD1_symbol_expr$Symbol
 PD1_symbol_expr[,-1]->PD1_symbol_expr
-annotation_col = data.frame(SampleClass = factor(rep(c("response", "non-response"), c(nrow(PD1_response),nrow(PD1_non_response)))))
-rownames(annotation_col)=colnames(PD1_symbol_expr)
-pheatmap(PD1_symbol_expr, annotation_col = annotation_col,scale="row")->PD1_survival_plot
-ggsave(
-  filename = 'PD1_survival_heatmap.pdf',
-  plot = PD1_survival_plot,
-  device = 'pdf',
-  path = '/data/liull/immune-checkpoint-blockade/survival/',
-  width = 16,
-  height = 6.8
-)
+# annotation_col = data.frame(SampleClass = factor(rep(c("response", "non-response"), c(nrow(PD1_response),nrow(PD1_non_response)))))
+# rownames(annotation_col)=colnames(PD1_symbol_expr)
+# pheatmap(PD1_symbol_expr, annotation_col = annotation_col,scale="row")->PD1_survival_plot
+
+apply(PD1_symbol_expr, 1, scale) ->scaled_expr
+rownames(scaled_expr)=colnames(PD1_symbol_expr)
+scaled_expr=t(scaled_expr)
+
+
+df = data.frame(type = c(rep("response", nrow(PD1_response)), rep("non_response", nrow(PD1_non_response))))
+ha = HeatmapAnnotation(df = df,col = list(type = c("response" =  "tomato", "non_response" = "steelblue")))
+Heatmap(scaled_expr,name="Color_key",top_annotation = ha,cluster_columns = FALSE,column_names_gp = gpar(fontsize = 2),row_names_gp = gpar(fontsize = 1),col=colorRamp2(c(-4, 0, 4), c("green", "black", "red")))
+
+
+
+# ggsave(
+#   filename = 'PD1_survival_heatmap.pdf',
+#   plot = PD1_survival_plot,
+#   device = 'pdf',
+#   path = '/data/liull/immune-checkpoint-blockade/survival/',
+#   width = 16,
+#   height = 6.8
+# )
 
 
 #CTLA4---------------------------------------------------------------
