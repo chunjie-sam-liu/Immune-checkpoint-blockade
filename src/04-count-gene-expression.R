@@ -29,7 +29,7 @@ as.vector(sapply(ncrna_relation$X9,function(x) unlist(strsplit(x,"\""))[2])) -> 
 as.vector(sapply(ncrna_relation$X9,function(x) unlist(strsplit(x,"\""))[4])) -> transcript_ID
 relationship2=cbind(gene_ID,transcript_ID)
 relationship=rbind(relationship1,relationship2)
-write.table(relationship,"/data/liull/immune-checkpoint-blockade/RNA_seq_pipeline_gtf_relationship.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+write.table(relationship,"/data/liull/reference/RNA_seq_pipeline_gtf_relationship.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 
 
 all_expression=matrix(NA)
