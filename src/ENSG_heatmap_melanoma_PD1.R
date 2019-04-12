@@ -31,14 +31,14 @@ tibble::rownames_to_column(output) %>% dplyr::filter(P.Value<0.05) %>% dplyr::fi
 
 read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",sep="\t",header = T,as.is = TRUE) ->relationship
 
-merge(relationship,up,by.x="Ensembl_ID",by.y="rowname",all=TRUE)%>%
-  dplyr::filter(Ensembl_ID %in% up$rowname) ->up2
-up2<- up2[order(up2$logFC,decreasing = TRUE),]
-merge(relationship,down,by.x="Ensembl_ID",by.y="rowname",all=TRUE)%>%
-  dplyr::filter(Ensembl_ID %in% down$rowname) ->down2
-down2<- down2[order(down2$logFC),]
-write.table(up2,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/PD1_up_symbol.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
-write.table(down2,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/PD1_down_symbol.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
+# merge(relationship,up,by.x="Ensembl_ID",by.y="rowname",all=TRUE)%>%
+#   dplyr::filter(Ensembl_ID %in% up$rowname) ->up2
+# up2<- up2[order(up2$logFC,decreasing = TRUE),]
+# merge(relationship,down,by.x="Ensembl_ID",by.y="rowname",all=TRUE)%>%
+#   dplyr::filter(Ensembl_ID %in% down$rowname) ->down2
+# down2<- down2[order(down2$logFC),]
+# write.table(up2,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/PD1_up_symbol_ordered.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
+# write.table(down2,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/PD1_down_symbol_ordered.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
 
 
 dplyr::filter(up,rowname %in% grep("ENSG",up$rowname,value=T))->up_ENSG
