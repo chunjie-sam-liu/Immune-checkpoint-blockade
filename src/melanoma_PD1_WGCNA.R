@@ -1,7 +1,7 @@
 #WGCNA for melanoma PD1
 library(WGCNA)
 library(magrittr)
-
+enableWGCNAThreads(nThreads =20 )
 #prepared data traits----------------------------------------------------------------------------
 readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="SRA") %>%
   dplyr::filter(Library_strategy=="RNA-Seq") %>%
