@@ -7,6 +7,7 @@ library(circlize)
 library(sva)
 library(org.Hs.eg.db)
 library(ggplot2)
+library(edgeR)
 
 #filter melanoma RNA-seq anti-PD1
 readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="SRA") %>%
@@ -70,7 +71,9 @@ dplyr::select(as.data.frame(combat_edata),response$Run,non_response$Run)->ordere
 
 keep <- rowSums(ordered_combat_edata>0) >= 2
 ordered_combat_edata <- ordered_combat_edata[keep,]
+write.table(ordered_combat_edata,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/pre_PD1_filtered_combat_edata.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
 #delete the gene has less than 2 sample exression CPM<1(log2CPM<0)
+
 
 group_list <- factor(c(rep("response",nrow(response)), rep("non_response",nrow(non_response))))
 design <- model.matrix(~group_list)
@@ -83,34 +86,47 @@ output <- topTable(fit2, coef=2, n=Inf)
 tibble::rownames_to_column(output) %>% dplyr::filter(P.Value<0.05) %>% dplyr::filter(logFC>1)->up
 tibble::rownames_to_column(output) %>% dplyr::filter(P.Value<0.05) %>% dplyr::filter(logFC< -1)->down
 
-write.table(output,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/PD1_all_DEG.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
-write.table(up,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/PD1_up.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
-write.table(down,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/PD1_down.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
+read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",sep="\t",header = T,as.is = TRUE) ->relationship
+merge(relationship,up,by.x="Ensembl_ID",by.y="rowname",all=TRUE)%>%
+  dplyr::filter(Ensembl_ID %in% grep("ENSG",up$rowname,value=T)) ->up_ENSG
+up_ENSG[order(up_ENSG$logFC,decreasing = TRUE),]->up_ENSG
+merge(relationship,down,by.x="Ensembl_ID",by.y="rowname",all=TRUE)%>%
+  dplyr::filter(Ensembl_ID %in% grep("ENSG",down$rowname,value=T)) ->down_ENSG
+down_ENSG[order(down_ENSG$logFC),]->down_ENSG
 
-#DEG by t test
-# p_value=apply(ordered_combat_edata,1,function(x) t.test(x[1:nrow(response)],x[(nrow(response)+1):length(ordered_combat_edata)])$p.value)
-# logFC=apply(ordered_combat_edata,1,function(x) (mean(x[1:nrow(response)])/mean(x[(nrow(response)+1):length(ordered_combat_edata)])))
-# result=as.data.frame(cbind(ordered_combat_edata,p_value,logFC))
-# tibble::rownames_to_column(result) %>% dplyr::filter(p_value<0.05) %>% dplyr::filter(logFC>1)->a
-# tibble::rownames_to_column(result) %>% dplyr::filter(p_value<0.05) %>% dplyr::filter(logFC< -1)->b
+write.table(output,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/PD1_all_DEG.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
+write.table(up_ENSG,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/PD1_up_ENSG.txt",quote = FALSE,row.names = FALSE,col.names = TRUE)
+write.table(down_ENSG,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/PD1_down_ENSG.txt",quote = FALSE,row.names = FALSE,col.names = TRUE)
 
 
 #PCA test for combat-----------------------------------------------------------------------------------
 #before
 pca_before <- princomp(normalized_loggedCPM_expr)
-data.frame(loadings(pca_before)[,1:3])->pc
-point_color=c(rep("blue",length(Project1_id)),rep("green",length(Project2_id)),rep("red",length(Project3_id)))
-cbind(pc,point_color)->pcs
+data.frame(loadings(pca_before)[,1:3])->pc_before
+Project=c(rep(Project[1],length(Project1_id)),rep(Project[2],length(Project2_id)),rep(Project[3],length(Project3_id)))
+cbind(pc_before,Project)->pc_before
 
 pdf(file = "/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/PCA_before.pdf", 7.5, 5.5)
-plot(pcs$Comp.1,pcs$Comp.2,pch=20,cex=0.6,col=as.character(pcs$point_color))
+ggplot(pc_before,aes(x=pc_before$Comp.1,y=pc_before$Comp.2,color=Project))+
+  geom_point()+
+  theme(panel.grid.major=element_blank(),
+        panel.grid.minor=element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"))+
+  labs(x = "PC1", y = "PC2")
 dev.off()
 #after
 pca_combat <- princomp(combat_edata)
-data.frame(loadings(pca_combat)[,1:3])->pc
-cbind(pc,point_color)->pcs
+data.frame(loadings(pca_combat)[,1:3])->pc_after
+cbind(pc_after,Project)->pc_after
 pdf(file = "/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/PCA_ComBat.pdf", 7.5, 5.5)
-plot(pcs$Comp.1,pcs$Comp.2,pch=20,cex=0.5,col=as.character(pcs$point_color))
+ggplot(pc_after,aes(x=pc_after$Comp.1,y=pc_after$Comp.2,color=Project))+
+  geom_point()+
+  theme(panel.grid.major=element_blank(),
+        panel.grid.minor=element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"))+
+  labs(x = "PC1", y = "PC2")
 dev.off()
 
 
@@ -160,9 +176,7 @@ Heatmap(new_scaled_expr,name="Color_key",top_annotation = ha,cluster_columns = F
 dev.off()
 
 #GO enrichment-----------------------------------------------
-read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",sep="\t",header = T,as.is = TRUE) ->relationship
-merge(relationship,up,by.x="Ensembl_ID",by.y="rowname",all=TRUE)%>%
-  dplyr::filter(Ensembl_ID %in% up$rowname) ->up2
+
 enrichGO(gene = up2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "fdr",pvalueCutoff = 0.05,readable = TRUE)->ego_up#144
 DOSE::dotplot(ego_up, split="ONTOLOGY") + facet_grid(ONTOLOGY~., scale="free")->ego_up_plot
 ggsave(
@@ -174,8 +188,7 @@ ggsave(
   height = 8
 )
 
-merge(relationship,down,by.x="Ensembl_ID",by.y="rowname",all=TRUE)%>%
-  dplyr::filter(Ensembl_ID %in% down$rowname) ->down2
+
 enrichGO(gene = down2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "fdr",pvalueCutoff = 0.05,readable = TRUE)->ego_down#11
 DOSE::dotplot(ego_down, split="ONTOLOGY",showCategory=20) + facet_grid(ONTOLOGY~., scale="free")->ego_down_plot
 ggsave(
