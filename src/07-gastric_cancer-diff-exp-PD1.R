@@ -37,46 +37,28 @@ rownames(design) <- colnames(normalized_loggedCPM_expr)
 fit <- lmFit(normalized_loggedCPM_expr, design)
 fit2 <- eBayes(fit)
 output <- topTable(fit2, coef=2, n=Inf)
-write.table(output,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/gastric_cancer/all_DEG.txt",quote = FALSE,sep="\t",row.names = TRUE,col.names = TRUE)
+
 tibble::rownames_to_column(output) %>% dplyr::filter(P.Value<0.05) %>% dplyr::filter(logFC>1)->up#668
 tibble::rownames_to_column(output) %>% dplyr::filter(P.Value<0.05) %>% dplyr::filter(logFC< -1)->down#875
 
-######
-
-######
-
-#t.test
-# avg.R=apply(normalized_loggedCPM_expr,1,function(x) mean(x[1:nrow(response)]))
-# avg.NR=apply(normalized_loggedCPM_expr,1,function(x) mean(x[(nrow(response)+1):ncol(normalized_loggedCPM_expr)]))
-# FC=apply(normalized_loggedCPM_expr,1,function(x) (mean(x[1:nrow(response)])+0.01)/(mean(x[(nrow(response)+1):ncol(normalized_loggedCPM_expr)])+0.01))
-# p_value=apply(normalized_loggedCPM_expr,1,function(x) t.test(x[1:nrow(response)],x[(nrow(response)+1):ncol(normalized_loggedCPM_expr)])$p.value)
-# t_statistic=apply(normalized_loggedCPM_expr,1,function(x) t.test(x[1:nrow(response)],x[(nrow(response)+1):ncol(normalized_loggedCPM_expr)])$statistic)
-# result=as.data.frame(cbind(normalized_loggedCPM_expr,avg.R,avg.NR,FC,p_value))
-# 
-# result=cbind(rownames(result),result)
-# rownames(result)=NULL
-# colnames(result)[1]="ensembl_ID"
-# write.table(result,"/data/liull/immune-checkpoint-blockade/different_expression/gastric_cancer/gastric_cancer_PD1_DEG.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#write all genes' difference
-# 
-# dplyr::filter(as.data.frame(result),p_value<=0.05) %>%
-#   dplyr::filter(FC>=2) -> up#604
-# dplyr::filter(as.data.frame(result),p_value<=0.05) %>%
-#   dplyr::filter(FC<=0.5) -> down#1102
-
 read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",sep="\t",header = T,as.is = TRUE) ->relationship
 merge(relationship,up,by.x="Ensembl_ID",by.y="rowname",all=TRUE)%>%
-  dplyr::filter(Ensembl_ID %in% up$rowname) ->up2
+  dplyr::filter(Ensembl_ID %in% grep("ENSG",up$rowname,value=T)) ->up_ENSG
+up_ENSG[order(up_ENSG$logFC,decreasing = TRUE),]->up_ENSG
 merge(relationship,down,by.x="Ensembl_ID",by.y="rowname",all=TRUE)%>%
-  dplyr::filter(Ensembl_ID %in% down$rowname) ->down2
+  dplyr::filter(Ensembl_ID %in% grep("ENSG",down$rowname,value=T)) ->down_ENSG
+down_ENSG[order(down_ENSG$logFC),]->down_ENSG
+
+write.table(output,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/gastric_cancer/all_DEG.txt",quote = FALSE,sep="\t",row.names = TRUE,col.names = TRUE)
+write.table(up_ENSG,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/gastric_cancer/up_ENSG.txt",quote = FALSE,row.names = FALSE,col.names = TRUE)
+write.table(down_ENSG,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/gastric_cancer/down_ENSG.txt",quote = FALSE,row.names = FALSE,col.names = TRUE)
 
 
-write.table(up2,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/gastric_cancer/up.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
-write.table(down2,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/gastric_cancer/down.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 
 #heatmap for all up and down--------------------------------------------------------
-rbind(up,down)->all_genes
+rbind(up_ENSG,down_ENSG)->all_genes
 tibble::rownames_to_column(as.data.frame(normalized_loggedCPM_expr)) %>% 
-  dplyr::filter(rowname %in% all_genes$rowname)->expr_heatmap
+  dplyr::filter(rowname %in% all_genes$Ensembl_ID)->expr_heatmap
 rownames(expr_heatmap)=expr_heatmap$rowname
 expr_heatmap=expr_heatmap[,-1]
 
@@ -88,27 +70,13 @@ scaled_expr=t(scaled_expr)
 df = data.frame(type = c(rep("response", nrow(response)), rep("non_response", nrow(non_response))))
 ha = HeatmapAnnotation(df = df,col = list(type = c("response" =  "tomato", "non_response" = "steelblue")))
 
-pdf(file="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/gastric_cancer/heatmap.pdf")
-Heatmap(scaled_expr,name="Color_key",top_annotation = ha,cluster_columns = FALSE,column_names_gp = gpar(fontsize = 2),row_names_gp = gpar(fontsize = 1),col=colorRamp2(c(-4, 0, 4), c("green", "black", "red")))#->origin_heatmap
+pdf(file="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/gastric_cancer/heatmap_ENSG.pdf")
+Heatmap(scaled_expr,name="Color_key",top_annotation = ha,cluster_columns = FALSE,column_names_gp = gpar(fontsize = 2),row_names_gp = gpar(fontsize = 1),col=colorRamp2(c(-4, 0, 4), c("green", "black", "red")))
 dev.off()
 
-# > sum(rowSums(scaled_expr>3))
-# [1] 140
-# > sum(rowSums(scaled_expr< -3))
-# [1] 499
-
 # second heatmap
-
-new_scaled_expr <- scaled_expr[row_order(origin_heatmap)[[1]],]
-
-for(i in 1:ncol(new_scaled_expr)) {
-  m <- which(new_scaled_expr[,i]>3)
-  new_scaled_expr[m,i] <- 3
-  n <- which(new_scaled_expr[,i]<(-3))
-  new_scaled_expr[n,i] <- (-3)
-}
-pdf(file="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/gastric_cancer/heatmap_2.pdf")
-Heatmap(new_scaled_expr,name="Color_key",top_annotation = ha,cluster_columns = FALSE,cluster_rows = FALSE,column_names_gp = gpar(fontsize = 2),row_names_gp = gpar(fontsize = 1),col=colorRamp2(c(-3, 0, 3), c("green", "black", "red")),heatmap_legend_param=list(at= c(-2, 0, 2)))
+pdf(file="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/gastric_cancer/heatmap_ENSG_3.pdf")
+Heatmap(scaled_expr,name="Color_key",top_annotation = ha,cluster_columns = FALSE,column_names_gp = gpar(fontsize = 2),row_names_gp = gpar(fontsize = 1),col=colorRamp2(c(-3, 0, 3), c("green", "black", "red")),heatmap_legend_param=list(at= c(-2, 0, 2)))
 dev.off()
 
 
@@ -116,7 +84,7 @@ dev.off()
 library(clusterProfiler)
 library(org.Hs.eg.db)
 
-enrichGO(gene = up2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "fdr",pvalueCutoff = 0.05,readable = TRUE)->ego_up#344
+enrichGO(gene = up_ENSG$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "fdr",pvalueCutoff = 0.05,readable = TRUE)->ego_up#344
 DOSE::dotplot(ego_up, split="ONTOLOGY") + facet_grid(ONTOLOGY~., scale="free")->ego_up_plot
 ggsave(
   filename = 'gastric_cancer_PD1_up_GOenrich.pdf',
@@ -127,7 +95,7 @@ ggsave(
   height = 8
 )
 
-enrichGO(gene = down2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "fdr",pvalueCutoff = 0.05,readable = TRUE)->ego_down#366
+enrichGO(gene = down_ENSG$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "fdr",pvalueCutoff = 0.05,readable = TRUE)->ego_down#366
 DOSE::dotplot(ego_down, split="ONTOLOGY") + facet_grid(ONTOLOGY~., scale="free")->ego_down_plot
 ggsave(
   filename = 'gastric_cancer_PD1_down_GOenrich.pdf',

@@ -28,15 +28,14 @@ ECM_deg=c("COL1A1","COL1A2","COL3A1","COL5A1","COL5A2","COL6A1","COL6A2","COL6A3
 ECM_org=c("CRTAP","FBLN5","P3H3","COL1A1","COL1A2","COL3A1","COL5A1","COL5A2","COL6A1","COL6A2","COL6A3","COL9A3","COL12A1","COL15A1","COL16A1","VCAN","CAPN12","CTSK","DCN","ELN","FBLN1","TNC","ITGA6","ITGA5","ITGA7","AGRN","KDR","LAMA4","LAMC1","LOXL1","LTBP3","LUM","MFAP1","MFAP2","MFAP4","MMP2","MMP11","MMP14","MMP17","NID1","P4HB","PDGFB","PECAM1","PLEC","P3H2","HTRA1","PTPRS","P3H1","BMP1","SPARC","TGFB3","VWF","PXDN","MFAP5","COL18A1","CAPN2","COL27A1","SERPINH1","ADAM15","P4HA2","PLOD3","ADAMTS4","ADAMTS2","ADAMTS1")
 Collagen_form=c("CRTAP","P3H3","COL1A1","COL1A2","COL3A1","COL5A1","COL5A2","COL6A1","COL6A2","COL6A3","COL9A3","COL12A1","COL15A1","COL16A1","ITGA6","P4HB","PLEC","P3H1","BMP1","PXDN","COL27A1","SERPINH1","P4HA2","PLOD3","ADAMTS2")
 
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/gastric_cancer/up.txt",sep="\t",header = T,as.is = TRUE)->gastric_PD1_up
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/gastric_cancer/down.txt",sep="\t",header = T,as.is = TRUE)->gastric_PD1_down
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/PD1_up.txt",header = T,as.is = TRUE)->melanoma_PD1_up
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/PD1_down.txt",header = T,as.is = TRUE)->melanoma_PD1_down
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/CTLA4_up.txt",header = T,as.is = TRUE)->melanoma_CTLA4_up
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/CTLA4_down.txt",header = T,as.is = TRUE)->melanoma_CTLA4_down
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/gastric_cancer/up_ENSG.txt",header = T,as.is = TRUE)->gastric_PD1_up
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/gastric_cancer/down_ENSG.txt",header = T,as.is = TRUE)->gastric_PD1_down
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/PD1_up_ENSG.txt",header = T,as.is = TRUE)->melanoma_PD1_up
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/PD1_down_ENSG.txt",header = T,as.is = TRUE)->melanoma_PD1_down
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/CTLA4_up_ENSG.txt",header = T,as.is = TRUE)->melanoma_CTLA4_up
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/CTLA4_down_ENSG.txt",header = T,as.is = TRUE)->melanoma_CTLA4_down
 
-dplyr::filter(relationship,Ensembl_ID %in% intersect(gastric_PD1_down$Ensembl_ID,melanoma_PD1_down$rowname)) %>% 
-  dplyr::select(Symbol)->PD1_down_melanoma_gastric
+intersect(gastric_PD1_down$Symbol,melanoma_PD1_down$Symbol)->PD1_down_melanoma_gastric
 
 
 # down_melanoma_PD1_CTLA4_Interaction=c("UBE2E3","MRC2")
@@ -124,11 +123,14 @@ filter_res %>%
 
 # > gene_symbol
 # gene_symbol
-# 1       MFAP2
-# 2        P3H1
-# 3       P4HA2
-# 4         PIR
-# 5    SERPINH1
+# 1      CORO2B
+# 2       MFAP2
+# 3        NSG1
+# 4        P3H1
+# 5       P4HA2
+# 6       RCOR2
+# 7       RSPO4
+# 8    SERPINH1
 
 write.table(gene_symbol,"/data/liull/immune-checkpoint-blockade/survival/PD1_survival_symbol.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 
@@ -186,7 +188,7 @@ for (i in 1:nrow(Combined_data_3)) {
 }
 
 fit <- survfit(Surv(Survival_time, Survival_status) ~ Class, data = Combined_data_3)
-pdf(file="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/4_gene_survival.pdf")
+pdf(file="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/8_gene_survival.pdf")
 ggsurvplot(fit, data = Combined_data_3, pval = TRUE,risk.table = TRUE,risk.table.col = "strata")
 dev.off()
 

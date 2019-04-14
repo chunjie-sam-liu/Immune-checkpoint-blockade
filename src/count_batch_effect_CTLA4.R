@@ -83,33 +83,54 @@ output <- topTable(fit2, coef=2, n=Inf)
 tibble::rownames_to_column(output) %>% dplyr::filter(P.Value<0.05) %>% dplyr::filter(logFC>1)->up
 tibble::rownames_to_column(output) %>% dplyr::filter(P.Value<0.05) %>% dplyr::filter(logFC< -1)->down
 
+read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",sep="\t",header = T,as.is = TRUE) ->relationship
+merge(relationship,up,by.x="Ensembl_ID",by.y="rowname",all=TRUE)%>%
+  dplyr::filter(Ensembl_ID %in% grep("ENSG",up$rowname,value=T)) ->up_ENSG
+up_ENSG[order(up_ENSG$logFC,decreasing = TRUE),]->up_ENSG
+merge(relationship,down,by.x="Ensembl_ID",by.y="rowname",all=TRUE)%>%
+  dplyr::filter(Ensembl_ID %in% grep("ENSG",down$rowname,value=T)) ->down_ENSG
+down_ENSG[order(down_ENSG$logFC),]->down_ENSG
+
 write.table(output,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/CTLA4_all_DEG.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
-write.table(up,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/CTLA4_up.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
-write.table(down,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/CTLA4_down.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
+write.table(up_ENSG,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/CTLA4_up_ENSG.txt",quote = FALSE,row.names = FALSE,col.names = TRUE)
+write.table(down_ENSG,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/CTLA4_down_ENSG.txt",quote = FALSE,row.names = FALSE,col.names = TRUE)
 
 #PCA test for combat-----------------------------------------------------------------------------------
 #before
-pca_before <- princomp(normalized_loggedCPM_expr)
-data.frame(loadings(pca_before)[,1:3])->pc
-point_color=c(rep("blue",length(Project1_id)),rep("green",length(Project2_id)))
-cbind(pc,point_color)->pcs
+pca <- princomp(normalized_loggedCPM_expr)
+data.frame(loadings(pca)[,1:3])->pca_before
+Projects=c(rep(Project[1],length(Project1_id)),rep(Project[2],length(Project2_id)))
+cbind(pca_before,Projects)->pca_before
 
 pdf(file = "/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/PCA_before.pdf", 7.5, 5.5)
-plot(pcs$Comp.1,pcs$Comp.2,pch=20,cex=0.6,col=as.character(pcs$point_color))
+ggplot(pca_before,aes(x=pca_before$Comp.1,y=pca_before$Comp.2,color=Projects))+
+  geom_point()+
+  theme(panel.grid.major=element_blank(),
+        panel.grid.minor=element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"),
+        panel.border=element_rect(fill = NA))+
+  labs(x = "PC1", y = "PC2")
 dev.off()
 #after
 pca_combat <- princomp(combat_edata)
-data.frame(loadings(pca_combat)[,1:3])->pc
-cbind(pc,point_color)->pcs
+data.frame(loadings(pca_combat)[,1:3])->pc_after
+cbind(pc_after,Projects)->pc_after
 pdf(file = "/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/PCA_ComBat.pdf", 7.5, 5.5)
-plot(pcs$Comp.1,pcs$Comp.2,pch=20,cex=0.5,col=as.character(pcs$point_color))
+ggplot(pc_after,aes(x=pc_after$Comp.1,y=pc_after$Comp.2,color=Projects))+
+  geom_point()+
+  theme(panel.grid.major=element_blank(),
+        panel.grid.minor=element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"),
+        panel.border=element_rect(fill = NA))+
+  labs(x = "PC1", y = "PC2")
 dev.off()
 
-
 #heatmap for all DEG--------------------------------------------------------
-rbind(up,down)->all_genes
+rbind(up_ENSG,down_ENSG)->all_genes
 tibble::rownames_to_column(ordered_combat_edata) %>% 
-  dplyr::filter(rowname %in% all_genes$rowname)->expr_heatmap
+  dplyr::filter(rowname %in% all_genes$Ensembl_ID)->expr_heatmap
 rownames(expr_heatmap)=expr_heatmap$rowname
 expr_heatmap=expr_heatmap[,-1]
 
@@ -121,34 +142,22 @@ scaled_expr=t(scaled_expr)
 df = data.frame(type = c(rep("response", nrow(response)), rep("non_response", nrow(non_response))))
 ha = HeatmapAnnotation(df = df,col = list(type = c("response" =  "tomato", "non_response" = "steelblue")))
 
-pdf(file="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/heatmap.pdf")
-Heatmap(scaled_expr,name="Color_key",top_annotation = ha,cluster_columns = FALSE,column_names_gp = gpar(fontsize = 2),row_names_gp = gpar(fontsize = 1),col=colorRamp2(c(-4, 0, 4), c("green", "black", "red")))->origin_heatmap
+pdf(file="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/heatmap_ENSG.pdf")
+Heatmap(scaled_expr,name="Color_key",top_annotation = ha,cluster_columns = FALSE,column_names_gp = gpar(fontsize = 2),row_names_gp = gpar(fontsize = 1),col=colorRamp2(c(-4, 0, 4), c("green", "black", "red")))
 dev.off()
 
 # > sum(rowSums(scaled_expr>2))
-# [1] 280
+# [1] 208
 # > sum(rowSums(scaled_expr< -2))
-# [1] 337
+# [1] 251
 
 # second heatmap
-
-new_scaled_expr <- scaled_expr[row_order(origin_heatmap)[[1]],]
-
-for(i in 1:ncol(new_scaled_expr)) {
-  m <- which(new_scaled_expr[,i]>2)
-  new_scaled_expr[m,i] <- 2
-  n <- which(new_scaled_expr[,i]<(-2))
-  new_scaled_expr[n,i] <- (-2)
-}
-pdf(file="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/heatmap_2.pdf")
-Heatmap(new_scaled_expr,name="Color_key",top_annotation = ha,cluster_columns = FALSE,cluster_rows = FALSE,column_names_gp = gpar(fontsize = 2),row_names_gp = gpar(fontsize = 1),col=colorRamp2(c(-2, 0, 2), c("green", "black", "red")),heatmap_legend_param=list(at= c(-2, 0, 2)))
+pdf(file="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/heatmap_ENSG_2.pdf")
+Heatmap(scaled_expr,name="Color_key",top_annotation = ha,cluster_columns = FALSE,column_names_gp = gpar(fontsize = 2),row_names_gp = gpar(fontsize = 1),col=colorRamp2(c(-2, 0, 2), c("green", "black", "red")))
 dev.off()
 
 #GO enrichment-----------------------------------------------
-read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",sep="\t",header = T,as.is = TRUE) ->relationship
-merge(relationship,up,by.x="Ensembl_ID",by.y="rowname",all=TRUE)%>%
-  dplyr::filter(Ensembl_ID %in% up$rowname) ->up2
-enrichGO(gene = up2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "fdr",pvalueCutoff = 0.05,readable = TRUE)->ego_up#14
+enrichGO(gene = up_ENSG$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "fdr",pvalueCutoff = 0.05,readable = TRUE)->ego_up#14
 DOSE::dotplot(ego_up, split="ONTOLOGY") + facet_grid(ONTOLOGY~., scale="free")->ego_up_plot
 ggsave(
   filename = 'melanoma_CTLA4_up_GOenrich.pdf',
@@ -159,9 +168,7 @@ ggsave(
   height = 8
 )
 
-merge(relationship,down,by.x="Ensembl_ID",by.y="rowname",all=TRUE)%>%
-  dplyr::filter(Ensembl_ID %in% down$rowname) ->down2
-enrichGO(gene = down2$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "fdr",pvalueCutoff = 0.05,readable = TRUE)->ego_down#4
+enrichGO(gene = down_ENSG$GeneID,OrgDb = org.Hs.eg.db,ont = "ALL",pAdjustMethod = "fdr",pvalueCutoff = 0.05,readable = TRUE)->ego_down#4
 DOSE::dotplot(ego_down, split="ONTOLOGY",showCategory=20) + facet_grid(ONTOLOGY~., scale="free")->ego_down_plot
 ggsave(
   filename = 'melanoma_CTLA4_down_GOenrich.pdf',
