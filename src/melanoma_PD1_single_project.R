@@ -1,4 +1,6 @@
 library(magrittr)
+
+#single one procedure----------------------------------------
 readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="SRA") %>%
   dplyr::filter(Library_strategy=="RNA-Seq") %>%
   dplyr::filter(Cancer=="melanoma") %>%
@@ -39,8 +41,8 @@ for (i in 1:3) {
   fit2 <- eBayes(fit)
   output <- topTable(fit2, coef=2, n=Inf)
   
-  tibble::rownames_to_column(output) %>% dplyr::filter(P.Value<0.05) %>% dplyr::filter(logFC>1)->up
-  tibble::rownames_to_column(output) %>% dplyr::filter(P.Value<0.05) %>% dplyr::filter(logFC< -1)->down
+  tibble::rownames_to_column(output) %>% dplyr::filter(P.Value<0.05) %>% dplyr::filter(logFC>log2(1.5))->up
+  tibble::rownames_to_column(output) %>% dplyr::filter(P.Value<0.05) %>% dplyr::filter(logFC<log2(1/1.5))->down
   
   merge(relationship,up,by.x="Ensembl_ID",by.y="rowname",all=TRUE)%>%
     dplyr::filter(Ensembl_ID %in% up$rowname) ->up2
@@ -50,17 +52,19 @@ for (i in 1:3) {
   down2[order(down2$logFC),]->down2
   dim(up2)
   dim(down2)
-  # write.table(up2,paste("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/",Project[i],"_all_up.txt",sep="" ),quote = FALSE,row.names = FALSE,col.names = TRUE)
-  # write.table(down2,paste("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/",Project[i],"_all_down.txt",sep="" ),quote = FALSE,row.names = FALSE,col.names = TRUE)
+  write.table(up2,paste("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/",Project[i],"_all_up_1.5.txt",sep="" ),quote = FALSE,row.names = FALSE,col.names = TRUE)
+  write.table(down2,paste("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/",Project[i],"_all_down_1.5.txt",sep="" ),quote = FALSE,row.names = FALSE,col.names = TRUE)
   
 }
 
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/SRP070710_all_up.txt",header = T,as.is = TRUE) ->SRP070710_up
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/SRP070710_all_down.txt",header = T,as.is = TRUE) ->SRP070710_down
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/SRP094781_all_up.txt",header = T,as.is = TRUE) ->SRP094781_up
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/SRP094781_all_down.txt",header = T,as.is = TRUE) ->SRP094781_down
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/SRP150548_all_up.txt",header = T,as.is = TRUE) ->SRP150548_up
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/SRP150548_all_down.txt",header = T,as.is = TRUE) ->SRP150548_down
+
+#single result compare with all_together-------------------------------------------------
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/SRP070710_all_up_1.5.txt",header = T,as.is = TRUE) ->SRP070710_up
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/SRP070710_all_down_1.5.txt",header = T,as.is = TRUE) ->SRP070710_down
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/SRP094781_all_up_1.5.txt",header = T,as.is = TRUE) ->SRP094781_up
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/SRP094781_all_down_1.5.txt",header = T,as.is = TRUE) ->SRP094781_down
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/SRP150548_all_up_1.5.txt",header = T,as.is = TRUE) ->SRP150548_up
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/SRP150548_all_down_1.5.txt",header = T,as.is = TRUE) ->SRP150548_down
 
 read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/PD1_all_up.txt",header = T,as.is = TRUE) ->PD1_all_up
 read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/PD1_all_down.txt",header = T,as.is = TRUE) ->PD1_all_down
@@ -106,6 +110,7 @@ ggsave(
 
 
 #SRP070710_standard vs SRP070710_me--------------------------------------------------------------------------
+setwd("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/")
 read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/SRP070710_standard_up.txt",sep="\t",header = T,as.is = TRUE)%>%
   as.matrix()%>%
   as.character()->SRP070710_standard_up
@@ -119,18 +124,9 @@ dplyr::filter(SRP070710_up,Ensembl_ID %in% grep("ENSG",SRP070710_up$Ensembl_ID,v
   # length()
   
 
-venn.diagram(list(SRP070710=SRP070710_me_up, SRP070710_standard=SRP070710_standard_up),filename=NULL,fill=c("red","yellow"),na="remove")->SRP070710_venn_up
-grid.draw(SRP070710_venn_up)
-ggsave(
-  filename = 'SRP070710_venn_up.pdf',
-  plot = SRP070710_venn_up,
-  device = 'pdf',
-  path = '/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/',
-  width = 12,
-  height = 8
-)
-
-
+venn.diagram(list(SRP070710=SRP070710_me_up, SRP070710_standard=SRP070710_standard_up),main="SRP070710 VS SRP070710_standard: up",cex=2,margin = 0.1,imagetype = "png",filename = "SRP070710_venn_up.png",fill=c("red","yellow"),na="remove")
+# ->SRP070710_venn_up
+# grid.draw(SRP070710_venn_up)
 
 read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/SRP070710_standard_down.txt",sep="\t",header = T,as.is = TRUE)%>%
   as.matrix()%>%
@@ -140,20 +136,14 @@ dplyr::filter(SRP070710_down,Ensembl_ID %in% grep("ENSG",SRP070710_down$Ensembl_
   dplyr::select(Symbol)%>%
   as.matrix()%>%
   as.character()->SRP070710_me_down
-# intersect(SRP070710_standard_down)%>%
-# length()
-venn.diagram(list(SRP070710=SRP070710_me_down, SRP070710_standard=SRP070710_standard_down),filename=NULL,fill=c("red","yellow"),na="remove")->SRP070710_venn_down
-grid.draw(SRP070710_venn_down)
-ggsave(
-  filename = 'SRP070710_venn_down.pdf',
-  plot = SRP070710_venn_down,
-  device = 'pdf',
-  path = '/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/',
-  width = 12,
-  height = 8
-)
+
+venn.diagram(list(SRP070710=SRP070710_me_down, SRP070710_standard=SRP070710_standard_down),main="SRP070710 VS SRP070710_standard: down",cex=2,margin = 0.1,imagetype = "png",filename = "SRP070710_venn_down.png",fill=c("red","yellow"),na="remove")
+# ->SRP070710_venn_down
+# grid.draw(SRP070710_venn_down)
+
 
 #SRP094781_standard vs SRP094781_me -------------------------------------------
+#up
 read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/SRP094781_standard_up.txt",sep="\t",header = T,as.is = TRUE)%>%
   as.matrix()%>%
   as.character()->SRP094781_standard_up
@@ -163,17 +153,10 @@ dplyr::filter(SRP094781_up,Ensembl_ID %in% grep("ENSG",SRP094781_up$Ensembl_ID,v
   as.matrix()%>%
   as.character()->SRP094781_me_up
 
-venn.diagram(list(SRP094781=SRP094781_me_up, SRP094781_standard=SRP094781_standard_up),filename=NULL,fill=c("green","yellow"),na="remove")->SRP094781_venn_up
-grid.draw(SRP094781_venn_up)
-ggsave(
-  filename = 'SRP094781_venn_up.pdf',
-  plot = SRP094781_venn_up,
-  device = 'pdf',
-  path = '/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/',
-  width = 12,
-  height = 8
-)
+venn.diagram(list(SRP094781=SRP094781_me_up, SRP094781_standard=SRP094781_standard_up),main="SRP094781 VS SRP094781_standard: up",cex=2,margin = 0.1,imagetype = "png",filename="SRP094781_venn_up.png",fill=c("green","yellow"),na="remove")
 
+
+#down
 read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/SRP094781_standard_down.txt",sep="\t",header = T,as.is = TRUE)%>%
   as.matrix()%>%
   as.character()->SRP094781_standard_down
@@ -183,15 +166,7 @@ dplyr::filter(SRP094781_down,Ensembl_ID %in% grep("ENSG",SRP094781_down$Ensembl_
   as.matrix()%>%
   as.character()->SRP094781_me_down
 
-venn.diagram(list(SRP094781=SRP094781_me_down, SRP094781_standard=SRP094781_standard_down),filename=NULL,fill=c("green","yellow"),na="remove")->SRP094781_venn_down
-grid.draw(SRP094781_venn_down)
-ggsave(
-  filename = 'SRP094781_venn_down.pdf',
-  plot = SRP094781_venn_down,
-  device = 'pdf',
-  path = '/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/',
-  width = 12,
-  height = 8
-)
+venn.diagram(list(SRP094781=SRP094781_me_down, SRP094781_standard=SRP094781_standard_down),main="SRP094781 VS SRP094781_standard: down",cex=2,margin = 0.1,imagetype = "png",filename="SRP094781_venn_down.png",fill=c("green","yellow"),na="remove")
 
 
+#SRP150548's paper no DEG--------------
