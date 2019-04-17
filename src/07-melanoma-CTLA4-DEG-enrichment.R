@@ -44,8 +44,12 @@ output <- topTable(fit2, coef=2, n=Inf)
 
 tibble::rownames_to_column(output) %>% dplyr::filter(P.Value<=0.05) %>% dplyr::filter(logFC>log2(1.5))->up#273
 tibble::rownames_to_column(output) %>% dplyr::filter(P.Value<=0.05) %>% dplyr::filter(logFC< -log2(1.5))->down#270
+write.table(up,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/CTLA4_all_up.txt",quote = FALSE,row.names = FALSE,col.names = TRUE)
+write.table(down,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/CTLA4_all_down.txt",quote = FALSE,row.names = FALSE,col.names = TRUE)
 
-read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI_2.txt",sep="\t",header = T,as.is = TRUE) ->relationship
+
+
+read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",sep="\t",header = T,as.is = TRUE) ->relationship
 merge(relationship,up,by.x="Ensembl_ID",by.y="rowname",all=TRUE)%>%
   dplyr::filter(Ensembl_ID %in% grep("ENSG",up$rowname,value=T)) ->up_ENSG#200
 up_ENSG[order(up_ENSG$logFC,decreasing = TRUE),]->up_ENSG
@@ -53,11 +57,11 @@ merge(relationship,down,by.x="Ensembl_ID",by.y="rowname",all=TRUE)%>%
   dplyr::filter(Ensembl_ID %in% grep("ENSG",down$rowname,value=T)) ->down_ENSG#187
 down_ENSG[order(down_ENSG$logFC),]->down_ENSG
 
-# write.table(output,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/gastric_cancer/all_DEG.txt",quote = FALSE,sep="\t",row.names = TRUE,col.names = TRUE)
-# write.table(up_ENSG,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/gastric_cancer/up_ENSG.txt",quote = FALSE,row.names = FALSE,col.names = TRUE)
-# write.table(down_ENSG,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/gastric_cancer/down_ENSG.txt",quote = FALSE,row.names = FALSE,col.names = TRUE)
+write.table(output,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/CTLA4_all_DEG.txt",quote = FALSE,sep="\t",row.names = TRUE,col.names = TRUE)
+write.table(up_ENSG,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/CTLA4_up_ENSG.txt",quote = FALSE,row.names = FALSE,col.names = TRUE)
+write.table(down_ENSG,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/CTLA4_down_ENSG.txt",quote = FALSE,row.names = FALSE,col.names = TRUE)
 
-#heatmap for all up and down--------------------------------------------------------
+#heatmap for ENSG up and down--------------------------------------------------------
 rbind(up_ENSG,down_ENSG)->all_genes
 tibble::rownames_to_column(as.data.frame(normalized_loggedCPM_expr)) %>% 
   dplyr::filter(rowname %in% all_genes$Ensembl_ID)->expr_heatmap
@@ -72,7 +76,7 @@ scaled_expr=t(scaled_expr)
 df = data.frame(type = c(rep("response", nrow(response)), rep("non_response", nrow(non_response))))
 ha = HeatmapAnnotation(df = df,col = list(type = c("response" =  "tomato", "non_response" = "steelblue")))
 
-pdf(file="/data/liull/immune-checkpoint-blockade/heatmap_ENSG.pdf")
+pdf(file="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/heatmap_ENSG.pdf")
 Heatmap(scaled_expr,name="Color_key",top_annotation = ha,cluster_columns = FALSE,column_names_gp = gpar(fontsize = 2),row_names_gp = gpar(fontsize = 1),col=colorRamp2(c(-4, 0, 4), c("green", "black", "red")))
 dev.off()
 
@@ -82,7 +86,7 @@ dev.off()
 # > sum(rowSums(scaled_expr< -2))
 # [1] 353
 
-pdf(file="/data/liull/immune-checkpoint-blockade/heatmap_ENSG_2.pdf")
+pdf(file="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/heatmap_ENSG_2.pdf")
 Heatmap(scaled_expr,name="Color_key",top_annotation = ha,cluster_columns = FALSE,column_names_gp = gpar(fontsize = 2),row_names_gp = gpar(fontsize = 1),col=colorRamp2(c(-2, 0, 2), c("green", "black", "red")))
 dev.off()
 
@@ -96,7 +100,7 @@ ggsave(
   filename = 'melanoma_CTLA4_up_GOenrich.pdf',
   plot = ego_up_plot,
   device = 'pdf',
-  path = '/data/liull/immune-checkpoint-blockade/',
+  path = '/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/',
   width = 12,
   height = 8
 )
@@ -107,13 +111,13 @@ ggsave(
   filename = 'melanoma_CTLA4_down_GOenrich.pdf',
   plot = ego_down_plot,
   device = 'pdf',
-  path = '/data/liull/immune-checkpoint-blockade/',
+  path = '/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/',
   width = 12,
   height = 8
 )
 
-# write.table(as.data.frame(ego_up),"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/gastric_cancer/up_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
-# write.table(as.data.frame(ego_down),"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/gastric_cancer/down_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+write.table(as.data.frame(ego_up),"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/up_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
+write.table(as.data.frame(ego_down),"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/down_enrichGO.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)
 
 
 #KEGG enrichment
