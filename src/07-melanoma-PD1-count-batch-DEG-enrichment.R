@@ -71,7 +71,7 @@ dplyr::select(as.data.frame(combat_edata),response$Run,non_response$Run)->ordere
 
 keep <- rowSums(ordered_combat_edata>0) >= 2
 ordered_combat_edata <- ordered_combat_edata[keep,]
-write.table(ordered_combat_edata,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/pre_PD1_filtered_combat_edata.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
+write.table(ordered_combat_edata,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/pre_PD1_filtered_all_expr.txt",quote = FALSE,row.names = TRUE,col.names = TRUE)
 #delete the gene has less than 2 sample exression CPM<1(log2CPM<0)
 
 
@@ -86,7 +86,8 @@ output <- topTable(fit2, coef=2, n=Inf)
 tibble::rownames_to_column(output) %>% dplyr::filter(P.Value<0.05) %>% dplyr::filter(logFC>1)->up
 tibble::rownames_to_column(output) %>% dplyr::filter(P.Value<0.05) %>% dplyr::filter(logFC< -1)->down
 
-read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",sep="\t",header = T,as.is = TRUE) ->relationship
+read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",header = T,sep="\t",as.is = TRUE) ->relationship
+
 merge(relationship,up,by.x="Ensembl_ID",by.y="rowname",all=TRUE)%>%
   dplyr::filter(Ensembl_ID %in% grep("ENSG",up$rowname,value=T)) ->up_ENSG
 up_ENSG[order(up_ENSG$logFC,decreasing = TRUE),]->up_ENSG
