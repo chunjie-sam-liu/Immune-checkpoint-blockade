@@ -10,15 +10,10 @@ readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_availabl
   dplyr::filter(Biopsy_Time=="pre-treatment")%>%
   dplyr::filter(Response != "NE")%>%
   dplyr::select(Run,Response)%>%
-  as.data.frame()->melanoma_PD1
-melanoma_PD1$Response%>%
-  gsub("^PD$", "NR",. )%>%
-  gsub("^SD$", "NR", .)%>%
-  gsub("^PR$", "R", .)%>%
-  gsub("^CR$", "R", .)->melanoma_PD1$Response#85 samples
-datTraits=as.data.frame(melanoma_PD1$Response)
-rownames(datTraits)=melanoma_PD1$Run
-colnames(datTraits)="Response"   
+  as.data.frame()->melanoma_PD1#85 samples
+dplyr::filter(melanoma_PD1,Response %in% c("CR","PR","R"))->response#26
+dplyr::filter(melanoma_PD1,Response %in% c("PD","SD","NR"))->non_response#59
+ 
 
 
 #prepared data expr------------------------------------------------------------------------------
@@ -45,9 +40,18 @@ dim(merged_expression)
 keep <- rowSums(merged_expression>0) >= 2
 melanoma_PD1_expr1 <- merged_expression[keep,]  #keep the gene has more than 2 CPM>2's sample 
 dim(melanoma_PD1_expr1)
-#write.table(melanoma_PD1_expr1,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/melanoma_PD1_pretreatment_symbol_log2CPM_largerthan_2_expr.txt",row.names = TRUE,col.names = TRUE,quote=FALSE,sep="\t")
+write.table(melanoma_PD1_expr1,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/pre_PD1_filtered_symbol_expr.txt",row.names = TRUE,col.names = TRUE,quote=FALSE,sep="\t")
+#only the gene has Ensembl id in NCBI_relationship(the one has no ensembl is meaningless,Gene type:pseudo or other)
+dplyr::select(as.data.frame(melanoma_PD1_expr1,stringsAsFactors=FALSE),response$Run)->expr_R
+  # t()%>%
+  # as.data.frame(stringsAsFactors=FALSE)->expr_R
+dplyr::select(as.data.frame(melanoma_PD1_expr1,stringsAsFactors=FALSE),non_response$Run)->expr_NR
 
-expr = as.data.frame(t(melanoma_PD1_expr1)) #prepare for WGCNA
+  # t()%>%
+  # as.data.frame(stringsAsFactors=FALSE)->expr_NR#prepare for WGCNA
+
+write.table(expr_R,"/data/liull/test2/expr_R.txt",row.names = TRUE,col.names = TRUE,quote=FALSE,sep="\t")
+write.table(expr_NR,"/data/liull/test2/expr_NR.txt",row.names = TRUE,col.names = TRUE,quote=FALSE,sep="\t")
 
 #test genes and samples---------------------------------------------------------------------------------
 gsg = goodSamplesGenes(expr, verbose = 3)
@@ -90,15 +94,47 @@ dev.off()
 
 #Generating adjacency and TOM similarity matrices based on the selected softpower--------------------------------------------------------
 softPower = 12
+SubGeneNames<-colnames(expr)
 adjacency = adjacency(expr, power = softPower)
 TOM = TOMsimilarity(adjacency)
 dissTOM = 1-TOM  # Turn adjacency into topological overlap
 geneTree = hclust(as.dist(dissTOM), method = "average") ## Call the hierarchical clustering function
-jpeg('TOM_based_gene_cluster.jpeg',width = 1500, height = 800, units = "px", pointsize = 12,quality = 100,bg = "#e5ecff",res=100)
-plot(geneTree, xlab="", sub="", main = "Gene clustering on TOM-based dissimilarity",labels = FALSE, hang = 0.04)
-dev.off()
+# jpeg('TOM_based_gene_cluster.jpeg',width = 1500, height = 800, units = "px", pointsize = 12,quality = 100,bg = "#e5ecff",res=100)
+# plot(geneTree, xlab="", sub="", main = "Gene clustering on TOM-based dissimilarity",labels = FALSE, hang = 0.04)
+# dev.off()
 
 dynamicMods = cutreeDynamic(dendro = geneTree, distM = dissTOM,
                             deepSplit = 2, pamRespectsDendro = FALSE,
-                            minClusterSize = minModuleSize);
+                            minClusterSize = 30);
 table(dynamicMods)
+dynamicColors = labels2colors(dynamicMods)
+table(dynamicColors)
+
+MEList = moduleEigengenes(expr, colors = dynamicColors)
+MEs = MEList$eigengenes
+# jpeg('eigengene.jpeg',width = 1000, height = 500, units = "px", pointsize = 12,quality = 100,bg = "#e5ecff",res=100)
+# plotEigengeneNetworks(MEs, "",plotDendrograms = FALSE, marHeatmap = c(2,4,1,2))
+# dev.off()
+MEDiss = 1-cor(MEs)
+MEDissThres = 0.25
+
+merge = mergeCloseModules(expr, dynamicColors, cutHeight = MEDissThres, verbose = 3)
+mergedColors = merge$colors
+mergedMEs = merge$newMEs
+
+##################save raw modules
+geneinfo<-data.frame(gene=SubGeneNames,module=dynamicColors)
+write.table(geneinfo, file = "/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/raw_module.assign.txt",sep="\t",quote=F,row.names=F)
+##################save merged modules
+geneinfo2<-data.frame(gene=SubGeneNames,module=mergedColors)
+write.table(geneinfo2, file = "/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/merged_module.assign.txt",sep="\t",quote=F,row.names=F)
+
+
+#one step
+net = blockwiseModules(expr, power = 12,
+                       TOMType = "unsigned", minModuleSize = 30,
+                       reassignThreshold = 0, mergeCutHeight = 0.25,
+                       numericLabels = TRUE, pamRespectsDendro = FALSE,
+                       saveTOMs = TRUE,
+                       saveTOMFileBase = "femaleMouseTOM",
+                       verbose = 3)
