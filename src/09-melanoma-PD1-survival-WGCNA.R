@@ -58,37 +58,74 @@ write.table(expr_NR,"/data/liull/test2/expr_NR.txt",row.names = TRUE,col.names =
 #WGCNA3.r expr_NR.txt 0.85 30 0.25
 #with the sets WGCNA get,do Univariate Cox regression----------------------------------------------------------------------------------
 library(magrittr)
-read.table("/data/liull/test_WGCNA_R/module.color.txt",header = F,as.is = TRUE,skip = 1) ->color_module
-
-cbind(color_module[1:2,],color_module[3:4,])%>%
-  cbind(color_module[5:6,])%>%
-  cbind(color_module[7:8,])%>%
-  cbind(color_module[9:10,])%>%
-  cbind(color_module[11:12,])%>%
-  cbind(color_module[13:14,])%>%
-  cbind(color_module[15:16,])%>%
+read.table("/data/liull/test_WGCNA_R/module.color.txt",header = F,as.is = TRUE,skip = 1) ->R_color_module #response modules
+cbind(R_color_module[1:2,],R_color_module[3:4,])%>%
+  cbind(R_color_module[5:6,])%>%
+  cbind(R_color_module[7:8,])%>%
+  cbind(R_color_module[9:10,])%>%
+  cbind(R_color_module[11:12,])%>%
+  cbind(R_color_module[13:14,])%>%
+  cbind(R_color_module[15:16,])%>%
   t()%>%
-  as.data.frame(stringsAsFactors=FALSE)->color_module
-colnames(color_module)=c("module","Num")
-rownames(color_module)=NULL
-dplyr::filter(color_module,module != "grey")->color_module
+  as.data.frame(stringsAsFactors=FALSE)->R_color_module
+colnames(R_color_module)=c("module","Num")
+rownames(R_color_module)=NULL
+dplyr::filter(R_color_module,module != "grey")->R_color_module
 
 read.table("/data/liull/test_WGCNA_R/raw_module.assign.txt",header = T,as.is = TRUE) %>%
-  dplyr::filter(module != "grey")->color_gene
+  dplyr::filter(module != "grey")->R_color_gene
 
-list_sets=list()
-module_names=character()
-for (i in 1:nrow(color_module)) {
+R_list_sets=list()
+R_module_names=character()
+for (i in 1:nrow(R_color_module)) {
   
-  color_module$module[i] -> module_names[i]
-  dplyr::filter(color_gene,module == module_names[i])%>%
+  R_color_module$module[i] -> R_module_names[i]
+  dplyr::filter(R_color_gene,module == R_module_names[i])%>%
     dplyr::select(gene)%>%
     as.matrix()%>%
     as.character()%>%
-    list()->list_sets[i]
+    list()->R_list_sets[i]
   
 }
-names(list_sets)=module_names
+names(R_list_sets)=paste("R_",R_module_names,sep="")
+
+
+read.table("/data/liull/test_WGCNA_NR/module.color.txt",header = F,as.is = TRUE,skip = 1,fill = T) ->NR_color_module #non_response modules
+cbind(NR_color_module[1:2,],NR_color_module[3:4,])%>%
+  cbind(NR_color_module[5:6,])%>%
+  cbind(NR_color_module[7:8,])%>%
+  cbind(NR_color_module[9:10,])%>%
+  cbind(NR_color_module[11:12,])%>%
+  cbind(NR_color_module[13:14,])%>%
+  cbind(NR_color_module[15:16,])%>%
+  cbind(NR_color_module[17:18,])%>%
+  cbind(NR_color_module[19:20,])%>%
+  t()%>%
+  as.data.frame(stringsAsFactors=FALSE)->NR_color_module
+colnames(NR_color_module)=c("module","Num")
+rownames(NR_color_module)=NULL
+dplyr::filter(NR_color_module,module != "grey") %>%
+  dplyr::filter(module != "")->NR_color_module
+
+read.table("/data/liull/test_WGCNA_NR/raw_module.assign.txt",header = T,as.is = TRUE) %>%
+  dplyr::filter(module != "grey") ->NR_color_gene
+
+NR_list_sets=list()
+NR_module_names=character()
+for (i in 1:nrow(NR_color_module)) {
+  
+  NR_color_module$module[i] -> NR_module_names[i]
+  dplyr::filter(NR_color_gene,module == NR_module_names[i])%>%
+    dplyr::select(gene)%>%
+    as.matrix()%>%
+    as.character()%>%
+    list()->NR_list_sets[i]
+  
+}
+names(NR_list_sets)=paste("NR_",NR_module_names,sep="")
+
+
+list_sets=c(R_list_sets,NR_list_sets)
 
 read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/pre_PD1_filtered_symbol_expr.txt",header = T,as.is = TRUE)->pre_PD1_expr
 
