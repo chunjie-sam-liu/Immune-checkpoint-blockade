@@ -8,7 +8,6 @@ readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_availabl
   dplyr::filter(Cancer=="melanoma") %>%
   dplyr::filter(Anti_target=="anti-PD1") %>%
   dplyr::filter(Biopsy_Time=="pre-treatment")%>%
-  dplyr::filter(Response != "NE")%>%
   dplyr::select(Run,Response)%>%
   as.data.frame()->melanoma_PD1#85 samples
 dplyr::filter(melanoma_PD1,Response %in% c("CR","PR","R"))->response#26
@@ -137,10 +136,6 @@ readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_availabl
   dplyr::filter(Biopsy_Time=="pre-treatment")%>%###
   dplyr::select(Run,Response,Survival_time,Survival_status,Age,Gender) ->metadata
 
-# dplyr::filter(metadata,Response %in% c("CR","PR","R"))-> response
-# dplyr::filter(metadata,Response %in% c("SD","PD","NR")) -> non_response
-# dplyr::select(pre_PD1_expr,response$Run,non_response$Run)->ordered_all_expr
-
 
 ssgava_score <- gsva(as.matrix(pre_PD1_expr), list_sets, min.sz=1, max.sz=999999, method="ssgsea",kcdf="Gaussian")
 
@@ -211,13 +206,18 @@ filter_res %>%
   dplyr::select(module)->selected_modules
 # > selected_modules
 # module
-# 1   orange  0.36
-# 2     pink  0.087
-# 3    plum1  0.14
-# 4 skyblue3  0.0041
-
+# 1          R_orange
+# 2           R_plum1
+# 3        R_skyblue3  **
+# 4  NR_mediumpurple3
+# 5   NR_midnightblue  **
+# 6     NR_orangered4  *
+# 7         NR_purple
+# 8       NR_skyblue3
+# 9           NR_tan
+# 10         NR_white  **
 Combined_data %>%
-  dplyr::select(Run,Survival_time,Survival_status,as.character(selected_modules[4,1]))%>%
+  dplyr::select(Run,Survival_time,Survival_status,as.character(selected_modules[3,1]))%>%
   dplyr::mutate(Class=rep("class",nrow(Combined_data)))-> Combined_module_1
 cutoff=mean(Combined_module_1[,4])
 
@@ -235,7 +235,32 @@ pdf(file="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melan
 ggsurvplot(fit, data = Combined_module_1, pval = TRUE,risk.table = TRUE,risk.table.col = "strata")
 dev.off()
 
-#
+pdf(file="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_midnightblue_survival.pdf")
+ggsurvplot(fit, data = Combined_module_1, pval = TRUE,risk.table = TRUE,risk.table.col = "strata")
+dev.off()
+
+pdf(file="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_orangered4_survival.pdf")
+ggsurvplot(fit, data = Combined_module_1, pval = TRUE,risk.table = TRUE,risk.table.col = "strata")
+dev.off()
+
+pdf(file="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_white_survival.pdf")
+ggsurvplot(fit, data = Combined_module_1, pval = TRUE,risk.table = TRUE,risk.table.col = "strata")
+dev.off()
+
+write.table(list_sets$R_skyblue3,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/R_skyblue3.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
+write.table(list_sets$NR_midnightblue,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_midnightblue.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
+write.table(list_sets$NR_orangered4,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_orangered4.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
+write.table(list_sets$NR_white,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_white.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
+
+# write.table(list_sets$R_orange,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/R_orange.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
+# write.table(list_sets$R_plum1,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/R_plum1.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
+# write.table(list_sets$NR_mediumpurple3,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_mediumpurple3.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
+# write.table(list_sets$NR_purple,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_purple.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
+# write.table(list_sets$NR_skyblue3,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_skyblue3.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
+# write.table(list_sets$NR_tan,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_tan.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
+
+
+#gene sets heatmap
 dplyr::filter(metadata,Response %in% c("CR","PR")) -> response#
 dplyr::filter(metadata,Response %in% c("SD","PD")) -> non_response#
 

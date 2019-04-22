@@ -3,7 +3,7 @@ library(magrittr)
 
 
 # Step 1: reading your data
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/pre_PD1_filtered_symbol_expr.txt",header = T,as.is = TRUE) ->all_expr
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/pre_PD1_filtered_symbol_expr.txt",header = T,as.is = TRUE) ->pre_PD1_expr
 
 readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="SRA") %>%
   dplyr::filter(Library_strategy=="RNA-Seq") %>%
@@ -11,57 +11,65 @@ readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_availabl
   dplyr::filter(Anti_target=="anti-PD1") %>%
   dplyr::filter(Biopsy_Time=="pre-treatment")%>%
   dplyr::select(SRA_Study,Run,Response,Biopsy_Time,Survival_time,Survival_status,Age,Gender) ->metadata
-dplyr::filter(metadata,Response %in% c("CR","PR","R"))-> response
-dplyr::filter(metadata,Response %in% c("SD","PD","NR")) -> non_response
-dplyr::select(all_expr,response$Run,non_response$Run)->ordered_all_expr
+dplyr::filter(metadata,Response %in% c("CR","PR","R"))-> response#26
+dplyr::filter(metadata,Response %in% c("SD","PD","NR")) -> non_response#59
+dplyr::select(pre_PD1_expr,response$Run,non_response$Run)->ordered_PD1_expr
 
-#focus on response group---------------------------------------------------------------------------------------------------------------------------
-# Step 2: Cluster data based on a subset of experiments.
-hc.gene_R <- cluster.gene(ordered_all_expr[,1:nrow(response)], "pearson", "average")
 
-# Step 3: cut the tree at a height of 0.4 
-g_R <- cutree(hc.gene_R, h=0.4)
-
-# Step 4: examine the difference between R and NR
-cox_R <- coXpress(ordered_all_expr, g_R, 1:nrow(response), (nrow(response)+1):(nrow(response)+nrow(non_response)), times=1000)
-write.table(cox_R,"all_groups_R.txt",quote = FALSE,col.names = TRUE)
-
-# Step 5: the results are a data.frame, with one row for each group of genes.
-cox_R[cox_R$pr.g1 <= 0.05 & cox_R$pr.g2 >= 0.05 & cox_R$N>=7,]->selected_group_R
-
-# Step 6: examine groups of interest graphically ,look at group 239
-plot.compare.group(ordered_all_expr,g,239,1:nrow(response), (nrow(response)+1):(nrow(response)+nrow(non_response)),
+#coXpress based on Response
+hc.gene  <- cluster.gene(ordered_PD1_expr[,1:26],s="pearson",m="average")
+g <- cutree(hc.gene, h=0.4)
+cox <- coXpress(ordered_PD1_expr, g, 1:26, 27:85,times=1000)
+plot.compare.group(ordered_PD1_expr,g,21,1:26,27:85,
                    scale.center=TRUE,scale.scale=TRUE,
                    ylim=c(-5,5))
-inspect.group(ordered_all_expr,g,239,1:nrow(response), (nrow(response)+1):(nrow(response)+nrow(non_response)))#group 239's paied members' correlation in the R and NR
+inspect.group(ordered_PD1_expr, g, 21, 1:26, 27:85)
+
+cox[cox$N>8 & cox$pr.g1<=0.05 & cox$pr.g2>=0.05, ]->selected_group_R
+cox[cox$N>8 & cox$pr.g1>0.05 & cox$pr.g2<0.05, ]->selected_group_NR
+rbind(selected_group_R,selected_group_NR)->selected_groups
+
+write.table(g,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/coXpress/g.txt",quote = FALSE,col.names = FALSE,row.names = TRUE)
+write.table(cox,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/coXpress/all_groups.txt",quote = FALSE,col.names = TRUE)
+write.table(selected_groups,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/coXpress/selected_groups.txt",quote = FALSE,col.names = TRUE)
 
 
 
-#focus on non_response group---------------------------------------------------------------------------------------------------------
-hc.gene_NR <- cluster.gene(ordered_all_expr[,(nrow(response)+1):(nrow(response)+nrow(non_response))], "pearson", "average")
-g_NR <- cutree(hc.gene_NR, h=0.4)
-cox_NR <- coXpress(ordered_all_expr, g_NR, (nrow(response)+1):(nrow(response)+nrow(non_response)),1:nrow(response),  times=1000)
-write.table(cox_NR,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/coXpress/all_groups_NR.txt",quote = FALSE,col.names = TRUE)
 
-cox_NR[cox_NR$pr.g1 <= 0.05 & cox_NR$pr.g2 >= 0.05 & cox_NR$N>=7,]->selected_group_NR
 
+#coXpress R 1000 times
+
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/coXpress/selected_groups.txt",header = T,as.is = TRUE)->selected_groups
+
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/coXpress/g.txt",header = F,as.is = TRUE) ->g_dataframe
+g=g_dataframe$V2
+names(g)=g_dataframe$V1
+
+list_sets=list()
+module_names=character()
+for (i in 1:nrow(selected_groups)) {
+  
+  module=selected_groups$group[i]
+  inspect.group(ordered_PD1_expr,g,selected_groups$group[i],1:26, 27:85)->sets
+  list_sets[i]=list(union(sets$GeneA,sets$GeneB))
+  module_names[i]=paste("R_module",module,sep="_")
+  
+}
+names(list_sets)=module_names
 
 
 
 #ssGSEA--------------------
-list_sets=list()
-group_names=character()
-for (i in 1:nrow(selected_group)) {
-  
-  group=selected_group$group[i]
-  inspect.group(ordered_all_expr,g,selected_group$group[i],1:26, 27:85)->sets
-  list_sets[i]=list(union(sets$GeneA,sets$GeneB))
-  group_names[i]=paste("group",group,sep="_")
-  
-}
-names(list_sets)=group_names
 
-ssgava_score <- gsva(as.matrix(ordered_all_expr), list_sets, min.sz=1, max.sz=999999, method="ssgsea",kcdf="Gaussian", abs.ranking=FALSE, verbose=TRUE)
+readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="SRA") %>%
+  dplyr::filter(Library_strategy=="RNA-Seq") %>%
+  dplyr::filter(Cancer=="melanoma") %>%
+  dplyr::filter(Anti_target=="anti-PD1") %>%
+  dplyr::filter(Survival_time != "NA")%>%
+  dplyr::filter(Biopsy_Time=="pre-treatment")%>%###
+  dplyr::select(Run,Response,Survival_time,Survival_status,Age,Gender) ->metadata
+
+ssgava_score <- gsva(as.matrix(pre_PD1_expr), list_sets, min.sz=1, max.sz=999999, method="ssgsea",kcdf="Gaussian", abs.ranking=FALSE, verbose=TRUE)
 
 t(ssgava_score) %>%
   as.data.frame(stringsAsFactors=FALSE)->t_ssgava_score
@@ -69,7 +77,7 @@ cbind(rownames(t_ssgava_score),t_ssgava_score)->t_ssgava_score
 rownames(t_ssgava_score)=NULL
 colnames(t_ssgava_score)[1]="Run"
 
-Combined_data=merge(metadata[,c(2,5,6,7,8)],t_ssgava_score)
+Combined_data=merge(metadata[,c(1,3,4,5,6)],t_ssgava_score)
 
 for (j in 1:nrow(Combined_data)) {
   if(Combined_data$Survival_status[j]=="Dead"){
@@ -124,36 +132,37 @@ res <- as.data.frame(t(as.data.frame(univ_results, check.names = FALSE)),strings
 res$p.value=as.numeric(res$p.value)
 
 cbind(rownames(res),res)->filter_res
-colnames(filter_res)[1]="gene_group"
+colnames(filter_res)[1]="gene_module"
 filter_res %>%
   dplyr::filter(p.value<=0.05)%>%
-  dplyr::select(gene_group)->groups
-# > groups
-# gene_group
-# 1  group_239
+  dplyr::select(gene_module)->selected_modules
+# gene_module
+# 1   R_module_239
+
 
 Combined_data %>%
-  dplyr::select(Run,Survival_time,Survival_status,as.character(groups[,1]))->Combined_data_2
-cutoff=median(Combined_data_2$group_239)
-Combined_data_2 %>%
-  dplyr::mutate(Class=rep("class",nrow(Combined_data_2)))%>%
-  dplyr::select(Run,Survival_time,Survival_status,group_239,Class)->Combined_data_3
+  dplyr::select(Run,Survival_time,Survival_status,as.character(selected_modules[1,1]))%>%
+  dplyr::mutate(Class=rep("class",nrow(Combined_data)))-> Combined_module_1
+cutoff=mean(Combined_module_1[,4])
 
-
-
-for (i in 1:nrow(Combined_data_3)) {
-  if(Combined_data_3$group_239[i]>=cutoff){
-    Combined_data_3$Class[i]="high"
+for (i in 1:nrow(Combined_module_1)) {
+  if(Combined_module_1[i,4]>=cutoff){
+    Combined_module_1$Class[i]="high"
   }else {
-    Combined_data_3$Class[i]="low"
+    Combined_module_1$Class[i]="low"
   }
 }
 
-fit <- survfit(Surv(Survival_time, Survival_status) ~ Class, data = Combined_data_3)
-ggsurvplot(fit, data = Combined_data_3, pval = TRUE,risk.table = TRUE,risk.table.col = "strata")
+fit <- survfit(Surv(Survival_time, Survival_status) ~ Class, data = Combined_module_1)
+
+ggsurvplot(fit, data = Combined_module_1, pval = TRUE,risk.table = TRUE,risk.table.col = "strata")#0.51
 
 
-
-
-
+write.table(list_sets$R_module_239,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/coXpress/R_module_239.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
+write.table(list_sets$R_module_1448,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/coXpress/R_module_1448.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
+write.table(list_sets$R_module_40,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/coXpress/R_module_40.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
+write.table(list_sets$R_module_51,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/coXpress/R_module_51.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
+write.table(list_sets$R_module_1271,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/coXpress/R_module_1271.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
+write.table(list_sets$R_module_113,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/coXpress/R_module_113.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
+write.table(list_sets$R_module_294,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/coXpress/R_module_294.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
 
