@@ -66,4 +66,11 @@ length(intersect(standard_up$Ensembl_ID,up$`rownames(SRP070710_expr)`))
 length(intersect(standard_down$Ensembl_ID,down$`rownames(SRP070710_expr)`))
 # median(R)-median(NR): 94  FC:179
  
-
+venn.diagram(list(SRP094781=up$`rownames(SRP070710_expr)`, SRP094781_standard=standard_up$Ensembl_ID),
+             cex=2,margin = 0.2,imagetype = "png",
+             filename="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/SRP094781_one_method_up.png",
+             fill=c("red","yellow"),na="remove")
+venn.diagram(list(SRP094781=down$`rownames(SRP070710_expr)`, SRP094781_standard=standard_down$Ensembl_ID),
+             cex=2,margin = 0.2,imagetype = "png",
+             filename="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/single_test/SRP094781_one_method_down.png",
+             fill=c("red","yellow"),na="remove")
