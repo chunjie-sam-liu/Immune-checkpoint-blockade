@@ -75,8 +75,7 @@ genesets_c2<- getGmt(paste(file_path,"c2.all.v6.2.symbols.gmt",sep="/"))
 
 read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",header = T,as.is = TRUE,sep="\t") -> relationship
 
-readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="SRA") -> SRA
-SRA %>%
+readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="SRA") %>%
   dplyr::filter(Library_strategy=="RNA-Seq") %>%
   dplyr::filter(Cancer=="gastric cancer") %>%
   dplyr::filter(Anti_target=="anti-PD1") %>%
