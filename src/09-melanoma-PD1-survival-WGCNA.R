@@ -217,7 +217,7 @@ filter_res %>%
 # 9           NR_tan
 # 10         NR_white  **
 Combined_data %>%
-  dplyr::select(Run,Survival_time,Survival_status,as.character(selected_modules[3,1]))%>%
+  dplyr::select(Run,Survival_time,Survival_status,as.character(selected_modules[10,1]))%>%
   dplyr::mutate(Class=rep("class",nrow(Combined_data)))-> Combined_module_1
 cutoff=mean(Combined_module_1[,4])
 
@@ -228,6 +228,13 @@ for (i in 1:nrow(Combined_module_1)) {
     Combined_module_1$Class[i]="low"
   }
 }
+
+# Combined_module_1[,c(1,5)] %>%
+#   merge(metadata)->NR_white_class
+# colnames(NR_white_class)[2]="NR_white_class"
+# write.table(NR_white_class,
+#             "/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_white_class.txt",
+#             col.names = TRUE,row.names = FALSE,quote=FALSE)
 
 fit <- survfit(Surv(Survival_time, Survival_status) ~ Class, data = Combined_module_1)
 
@@ -251,13 +258,6 @@ write.table(list_sets$R_skyblue3,"/data/liull/immune-checkpoint-blockade/New_bat
 write.table(list_sets$NR_midnightblue,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_midnightblue.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
 write.table(list_sets$NR_orangered4,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_orangered4.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
 write.table(list_sets$NR_white,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_white.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
-
-# write.table(list_sets$R_orange,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/R_orange.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
-# write.table(list_sets$R_plum1,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/R_plum1.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
-# write.table(list_sets$NR_mediumpurple3,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_mediumpurple3.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
-# write.table(list_sets$NR_purple,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_purple.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
-# write.table(list_sets$NR_skyblue3,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_skyblue3.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
-# write.table(list_sets$NR_tan,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_tan.txt",row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
 
 
 #gene sets heatmap
