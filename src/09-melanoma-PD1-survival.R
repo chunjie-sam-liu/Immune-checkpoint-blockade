@@ -210,6 +210,13 @@ for (i in 1:nrow(Combined_data_3)) {
   }
 }
 
+Combined_data_3[,c(1,2,5)] %>%
+  merge(metadata)->eight_gene_class
+colnames(eight_gene_class)[3]="eight_gene_class"
+write.table(eight_gene_class,
+            "/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/8_gene_class.txt",
+            col.names = TRUE,row.names = FALSE,quote=FALSE)
+
 fit <- survfit(Surv(Survival_time, Survival_status) ~ Class, data = Combined_data_3)
 pdf(file="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/8_gene_survival.pdf")
 ggsurvplot(fit, data = Combined_data_3, pval = TRUE,risk.table = TRUE,risk.table.col = "strata")
