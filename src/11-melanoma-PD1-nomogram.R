@@ -12,6 +12,11 @@ merge(R_skyblue3_class,NR_midnightblue_class)%>%
   merge(NR_orangered4_class)%>%
   merge(NR_white_class)->all_class
 
+all_class%>%
+  dplyr::filter(Response != "NE")->all_class
+
+
+#Survival_time,Survival_status ~ modules---------------------------------------------------
 for (i in 1:nrow(all_class)) {
   if(all_class$Survival_status[i]=="Dead"){
     all_class$Survival_status[i]=2
@@ -19,17 +24,13 @@ for (i in 1:nrow(all_class)) {
     all_class$Survival_status[i]=1
   }
 }
-
-all_class%>%
-  dplyr::filter(Response != "NE")->all_class
-
 all_class$Survival_status=as.numeric(all_class$Survival_status)
 all_class$Survival_time=as.numeric(all_class$Survival_time)
 
 ddist <- datadist(all_class)
 options(datadist='ddist')
 
-#psm(up order)-----------------------------------------------------------------------------------------------------------------------------------------
+#psm(up order)
 f_psm <- psm(Surv(Survival_time,Survival_status) ~ 
                Response +
                R_skyblue3_class +
@@ -54,7 +55,7 @@ dev.off()
 
 
 
-#cph(down order)---------------------------------
+#cph(down order)
 f_cph <- cph(Surv(Survival_time,Survival_status) ~
                Response +
                R_skyblue3_class +
@@ -75,17 +76,13 @@ jpeg('/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_
 plot(nom_cph, xfrac=.3,cex.axis=.7,cex.var=0.8,lmgp=.05,tcl=0.25)
 dev.off()
 
-#predicted~actual------------------
+#actual ~ predict
 rcorrcens(Surv(Survival_time,Survival_status) ~ predict(f_psm), data =  all_class)#0.811
 rcorrcens(Surv(Survival_time,Survival_status) ~ predict(f_cph), data =  all_class)#0.187
-###(psm)---------------------------
+# rcorrcens(Surv(Survival_time,Survival_status) ~ predict(f_psm), data =  all_class)#NR~R 0.789
+# rcorrcens(Surv(Survival_time,Survival_status) ~ predict(f_cph), data =  all_class)#NR~R 0.211
 
-# f2 <- psm(Surv(Survival_time,Survival_status) ~ 
-#             R_skyblue3_class + 
-#             NR_midnightblue_class + 
-#             NR_orangered4_class + 
-#             NR_white_class, 
-#           data =  all_class, x=T, y=T, dist='lognormal',time.inc=365) ===f_psm
+###(psm)
 
 cal1 <- calibrate(f_psm, cmethod='KM', u=365, m=16,B=70)
 
@@ -97,14 +94,7 @@ plot(cal1,xlim=c(0,1),ylim=c(0,1),subtitles=FALSE,
 abline(0,1,lty =3,lwd=2,col=c(rgb(0,0,255,maxColorValue= 255)))
 dev.off()
 
-###(cph)---------------------------
-
-# f <- cph(Surv(Survival_time,Survival_status) ~ 
-#            R_skyblue3_class + 
-#            NR_midnightblue_class + 
-#            NR_orangered4_class + 
-#            NR_white_class, 
-#          x=TRUE, y=TRUE,surv = TRUE,time.inc=365,data=all_class)  ===f_cph
+###(cph)
 
 cal<-calibrate(f_cph,u=365,cmethod='KM',m=16,B=70)
 
@@ -116,5 +106,29 @@ plot(cal,xlim = c(0,1),ylim= c(0,1),subtitles=FALSE,
 abline(0,1,lty =3,lwd=2,col=c(rgb(0,0,255,maxColorValue= 255)))
 dev.off()
 
+#response ~ modules---------------------------------------------------------------------
+all_class$Response %>% 
+  gsub("^CR$",1,.)%>%
+  gsub("^PR$",1,.)%>%
+  gsub("^SD$",0,.)%>%
+  gsub("^PD$",0,.)->all_class$Response
 
+
+all_class$Response=as.numeric(all_class$Response)
+
+ddist <- datadist(all_class)
+options(datadist='ddist')
+
+fit <- lrm(Response ~ NR_midnightblue_class + R_skyblue3_class + NR_orangered4_class + NR_white_class,
+           data=all_class,x=TRUE,y=TRUE)
+
+
+nom <- nomogram(fit, fun=plogis,  # or fun=plogis
+                funlabel="Possibility of Response")
+jpeg('/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/R_NR_nomogram.jpeg',
+     width = 800, height = 800, units = "px", pointsize = 12,quality = 100,bg = "#e5ecff",res=100)
+plot(nom, xfrac=.45)
+dev.off()
+
+rcorrcens(Response ~ predict(fit), data =  all_class)
 
