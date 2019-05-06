@@ -5,8 +5,8 @@ library(reactome.db)
 #one low quality,one response X(Response)
 
 #fgsea in reactome
-
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/CTLA4_all_DEG.txt",header = T,as.is = TRUE) -> melanoma_CTLA4_DEG
+##use the Second_Response_standard!!!
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/Second_Response_standard/CTLA4_all_DEG.txt",header = T,as.is = TRUE) -> melanoma_CTLA4_DEG
 tibble::rownames_to_column(melanoma_CTLA4_DEG) %>%
   dplyr::select(rowname,logFC)->EnsemblID_logFC
 read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",sep="\t",header = T,as.is = TRUE) ->relationship
@@ -29,7 +29,7 @@ sum(fgsea_reactome[, padj < 0.05])
 
 dplyr::filter(fgsea_reactome,padj< 0.05)->sig_Reactome
 data.frame(lapply(sig_Reactome,as.character), stringsAsFactors=FALSE)->sig_Reactome
-write.table(sig_Reactome,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/GSEA/CTLA4_sig_Reactome.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#
+write.table(sig_Reactome,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/Second_Response_standard/GSEA/CTLA4_sig_Reactome.txt",quote = FALSE,sep="\t",row.names = FALSE,col.names = TRUE)#
 
 
 topPathwaysUp <- fgsea_reactome[ES > 0][head(order(pval), n=10), pathway]
@@ -42,7 +42,7 @@ ggsave(
   filename = 'CTLA4_GSEA_top20.pdf',
   plot = p,
   device = 'pdf',
-  path = '/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/GSEA',
+  path = '/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/Second_Response_standard/GSEA',
   width = 15,
   height = 8
 )
