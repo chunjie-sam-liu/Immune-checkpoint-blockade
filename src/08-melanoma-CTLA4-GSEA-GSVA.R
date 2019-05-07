@@ -70,10 +70,10 @@ readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_availabl
   dplyr::filter(Anti_target=="anti-CTLA4") %>%
   dplyr::filter(Biopsy_Time=="pre-treatment")%>%
   dplyr::filter(Run != "SRR3083584")%>%
-  dplyr::select(Run,Response) ->melanoma_CTLA4
+  dplyr::select(Run,Second_Response_standard) ->melanoma_CTLA4
 
-dplyr::filter(melanoma_CTLA4,Response %in% c("CR","PR","X"))$Run ->response_ids
-dplyr::filter(melanoma_CTLA4,Response %in% c("SD","PD"))$Run ->non_response_ids
+dplyr::filter(melanoma_CTLA4,Second_Response_standard %in% c("long-survival","R"))$Run ->response_ids
+dplyr::filter(melanoma_CTLA4,Second_Response_standard %in% c("NR"))$Run ->non_response_ids
 
 #load melanoma expr and translate Ensembl id to symbol
 
@@ -126,7 +126,7 @@ tibble::rownames_to_column(output) %>% dplyr::filter(P.Value<0.05) %>% dplyr::fi
 #heatmap
 
 rbind(up,down)->all_gene_sets
-write.table(all_gene_sets,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/GSVA/c2_sig_sets.txt",sep="\t",quote=FALSE,col.names = TRUE,row.names = FALSE)
+write.table(all_gene_sets,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/Second_Response_standard/GSVA/c2_sig_sets.txt",sep="\t",quote=FALSE,col.names = TRUE,row.names = FALSE)
 
 tibble::rownames_to_column(as.data.frame(GSVA_score_c2))%>%
   dplyr::filter(rowname %in% all_gene_sets$rowname)->GSVA_score_heatmap
@@ -141,8 +141,8 @@ scaled_GSVA_score=t(scaled_GSVA_score)
 df = data.frame(type = c(rep("response", length(response_ids)), rep("non_response", length(non_response_ids))))
 ha = HeatmapAnnotation(df = df,col = list(type = c("response" =  "tomato", "non_response" = "steelblue")))
 
-pdf(file="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/GSVA/heatmap.pdf")
-Heatmap(scaled_GSVA_score,name="Color_key",top_annotation = ha,cluster_columns = FALSE,column_names_gp = gpar(fontsize = 2),row_names_gp = gpar(fontsize = 5),col=colorRamp2(c(-2, 0, 2), c("green", "black", "red")))
+pdf(file="/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_CTLA4/Second_Response_standard/GSVA/heatmap.pdf")
+Heatmap(scaled_GSVA_score,name="Color_key",top_annotation = ha,cluster_columns = FALSE,column_names_gp = gpar(fontsize = 3),row_names_gp = gpar(fontsize = 1),col=colorRamp2(c(-2, 0, 2), c("green", "black", "red")))
 dev.off()
 
 
