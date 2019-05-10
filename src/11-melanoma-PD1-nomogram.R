@@ -131,4 +131,7 @@ plot(nom, xfrac=.45)
 dev.off()
 
 rcorrcens(Response ~ predict(fit), data =  all_class)
-
+# Somers' Rank Correlation for Censored Data    Response variable:Response
+# 
+#                 C   Dxy  aDxy    SD    Z      P  n
+# predict(fit) 0.69 0.381 0.381 0.126 3.02 0.0026 75
