@@ -57,7 +57,7 @@ write.table(expr_NR,"/data/liull/test2/expr_NR.txt",row.names = TRUE,col.names =
 #WGCNA3.r expr_NR.txt 0.85 30 0.25
 #with the sets WGCNA get,do Univariate Cox regression----------------------------------------------------------------------------------
 library(magrittr)
-read.table("/data/liull/test_WGCNA_R/module.color.txt",header = F,as.is = TRUE,skip = 1) ->R_color_module #response modules
+read.table("/data/liull/immune-checkpoint-blockade/coexpress_modules/test_WGCNA_R/module.color.txt",header = F,as.is = TRUE,skip = 1) ->R_color_module #response modules
 cbind(R_color_module[1:2,],R_color_module[3:4,])%>%
   cbind(R_color_module[5:6,])%>%
   cbind(R_color_module[7:8,])%>%
@@ -71,7 +71,7 @@ colnames(R_color_module)=c("module","Num")
 rownames(R_color_module)=NULL
 dplyr::filter(R_color_module,module != "grey")->R_color_module
 
-read.table("/data/liull/test_WGCNA_R/raw_module.assign.txt",header = T,as.is = TRUE) %>%
+read.table("/data/liull/immune-checkpoint-blockade/coexpress_modules/test_WGCNA_R/raw_module.assign.txt",header = T,as.is = TRUE) %>%
   dplyr::filter(module != "grey")->R_color_gene
 
 R_list_sets=list()
@@ -89,7 +89,7 @@ for (i in 1:nrow(R_color_module)) {
 names(R_list_sets)=paste("R_",R_module_names,sep="")
 
 
-read.table("/data/liull/test_WGCNA_NR/module.color.txt",header = F,as.is = TRUE,skip = 1,fill = T) ->NR_color_module #non_response modules
+read.table("/data/liull/immune-checkpoint-blockade/coexpress_modules/test_WGCNA_NR/module.color.txt",header = F,as.is = TRUE,skip = 1,fill = T) ->NR_color_module #non_response modules
 cbind(NR_color_module[1:2,],NR_color_module[3:4,])%>%
   cbind(NR_color_module[5:6,])%>%
   cbind(NR_color_module[7:8,])%>%
@@ -106,7 +106,7 @@ rownames(NR_color_module)=NULL
 dplyr::filter(NR_color_module,module != "grey") %>%
   dplyr::filter(module != "")->NR_color_module
 
-read.table("/data/liull/test_WGCNA_NR/raw_module.assign.txt",header = T,as.is = TRUE) %>%
+read.table("/data/liull/immune-checkpoint-blockade/coexpress_modules/test_WGCNA_NR/raw_module.assign.txt",header = T,as.is = TRUE) %>%
   dplyr::filter(module != "grey") ->NR_color_gene
 
 NR_list_sets=list()
@@ -216,6 +216,14 @@ filter_res %>%
 # 8       NR_skyblue3
 # 9           NR_tan
 # 10         NR_white  **
+Multi_cox <- coxph(Surv(Survival_time, Survival_status) ~ R_skyblue3 + NR_midnightblue +  NR_orangered4 + NR_white, data =  Combined_data)
+# all:Concordance= 0.688  (se = 0.047 )
+# R_skyblue3 Concordance= 0.642
+# NR_midnightblue Concordance= 0.611  
+# NR_orangered4 Concordance= 0.623  
+# NR_white Concordance= 0.642  
+
+
 Combined_data %>%
   dplyr::select(Run,Survival_time,Survival_status,as.character(selected_modules[10,1]))%>%
   dplyr::mutate(Class=rep("class",nrow(Combined_data)))-> Combined_module_1

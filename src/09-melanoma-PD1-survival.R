@@ -16,13 +16,8 @@ tibble::rownames_to_column(expr)%>%
   merge(relationship,.,by.x="Ensembl_ID",by.y="rowname")%>%
   dplyr::select(Symbol,metadata$Run)->expr2
 
-factors=factor(expr2$Symbol)
-merged_expression=tapply(expr2[,2],factors,median)
-for (i in 3:ncol(expr2)) {
-  temp=tapply(expr2[,i],factors,median)
-  merged_expression=cbind(merged_expression,temp)
-}
-colnames(merged_expression)=colnames(expr2)[2:ncol(expr2)]
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1_pretreatment_Symbol_log2CPM_expr.txt",
+           sep="\t",header = T,as.is = TRUE)->merged_expression
 
 
 Collagen_deg=c("COL1A1","COL1A2","COL3A1","COL5A1","COL5A2","COL6A1","COL6A2","COL6A3","COL9A3","COL12A1","COL15A1","COL16A1","CTSK","MMP2","MMP11")
@@ -83,7 +78,7 @@ Combined_data$Gender=as.numeric(Combined_data$Gender)
 
 
 #Univariate Cox regression
-covariates <- colnames(Combined_data)[-c(1,2,3)]
+covariates <- colnames(Combined_data)[-c(1,2,3,4)]
 
 univ_formulas <- sapply(covariates,
                         function(x) as.formula(paste('Surv(Survival_time, Survival_status)~',x)))
@@ -133,23 +128,41 @@ write.table(gene_symbol,"/data/liull/immune-checkpoint-blockade/New_batch_effect
 
 #Multivariate Cox regression analysis for significant gene_symbol-----------------------------------------------------------------------------------
 Multi_cox <- coxph(Surv(Survival_time, Survival_status) ~ CORO2B + MFAP2 + NSG1 + P3H1 +P4HA2 +RCOR2 + RSPO4 + SERPINH1, data =  Combined_data)
-# > Multi_cox
+# > summary(Multi_cox)
 # Call:
 #   coxph(formula = Surv(Survival_time, Survival_status) ~ CORO2B + 
 #           MFAP2 + NSG1 + P3H1 + P4HA2 + RCOR2 + RSPO4 + SERPINH1, data = Combined_data)
 # 
-# coef exp(coef) se(coef)    z    p
-# CORO2B   0.089715  1.093862 0.079551 1.13 0.26
-# MFAP2    0.152920  1.165232 0.108276 1.41 0.16
-# NSG1     0.149975  1.161806 0.082815 1.81 0.07
-# P3H1     0.000754  1.000754 0.213942 0.00 1.00
-# P4HA2    0.136794  1.146592 0.146035 0.94 0.35
-# RCOR2    0.049421  1.050663 0.108202 0.46 0.65
-# RSPO4    0.056551  1.058181 0.055441 1.02 0.31
-# SERPINH1 0.049513  1.050759 0.176372 0.28 0.78
-# 
-# Likelihood ratio test=20.9  on 8 df, p=0.00738
 # n= 77, number of events= 45 
+# 
+# coef exp(coef)  se(coef)     z Pr(>|z|)  
+# CORO2B   0.0897150 1.0938625 0.0795505 1.128   0.2594  
+# MFAP2    0.1529204 1.1652323 0.1082760 1.412   0.1579  
+# NSG1     0.1499755 1.1618058 0.0828150 1.811   0.0701 .
+# P3H1     0.0007536 1.0007539 0.2139418 0.004   0.9972  
+# P4HA2    0.1367937 1.1465915 0.1460346 0.937   0.3489  
+# RCOR2    0.0494211 1.0506627 0.1082023 0.457   0.6479  
+# RSPO4    0.0565511 1.0581807 0.0554413 1.020   0.3077  
+# SERPINH1 0.0495130 1.0507592 0.1763723 0.281   0.7789  
+# ---
+#   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# exp(coef) exp(-coef) lower .95 upper .95
+# CORO2B       1.094     0.9142    0.9359     1.278
+# MFAP2        1.165     0.8582    0.9424     1.441
+# NSG1         1.162     0.8607    0.9877     1.367
+# P3H1         1.001     0.9992    0.6580     1.522
+# P4HA2        1.147     0.8722    0.8612     1.527
+# RCOR2        1.051     0.9518    0.8499     1.299
+# RSPO4        1.058     0.9450    0.9492     1.180
+# SERPINH1     1.051     0.9517    0.7437     1.485
+# 
+# Concordance= 0.672  (se = 0.047 )
+# Rsquare= 0.238   (max possible= 0.989 )
+# Likelihood ratio test= 20.91  on 8 df,   p=0.00738
+# Wald test            = 16.76  on 8 df,   p=0.0327
+# Score (logrank) test = 17.93  on 8 df,   p=0.02176
+
 
 #significant symbols' expression---------------------------------------------------------------------------------------
 Combined_data %>%
