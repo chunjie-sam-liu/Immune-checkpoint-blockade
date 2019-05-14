@@ -81,3 +81,73 @@ filter_res %>%
 # 1   Tr1
 # 2 nTreg
 # 3  MAIT   ########FPKM
+Multi_cox <- coxph(Surv(Survival_time, Survival_status) ~ Tr1 + nTreg + MAIT, data =  Combined_data)
+# > summary(Multi_cox)
+# Call:
+#   coxph(formula = Surv(Survival_time, Survival_status) ~ Tr1 + 
+#           nTreg + MAIT, data = Combined_data)
+# 
+# n= 41, number of events= 41 
+# 
+# coef exp(coef) se(coef)      z Pr(>|z|)  
+# Tr1    2.32411  10.21759  1.22253  1.901   0.0573 .
+# nTreg -3.78874   0.02262  2.49368 -1.519   0.1287  
+# MAIT  -2.42008   0.08891  1.30663 -1.852   0.0640 .
+# ---
+#   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# exp(coef) exp(-coef) lower .95 upper .95
+# Tr1    10.21759    0.09787 0.9305300   112.193
+# nTreg   0.02262   44.20078 0.0001706     3.000
+# MAIT    0.08891   11.24673 0.0068670     1.151
+# 
+# Concordance= 0.716  (se = 0.054 )
+# Rsquare= 0.27   (max possible= 0.996 )
+# Likelihood ratio test= 12.91  on 3 df,   p=0.004841
+# Wald test            = 12.92  on 3 df,   p=0.004824
+# Score (logrank) test = 13.46  on 3 df,   p=0.003747
+
+Combined_data %>%
+  dplyr::select(Run,Survival_time,Survival_status,Tr1,nTreg,MAIT)->TIL_data
+cutoff_Tr1=mean(TIL_data$Tr1)
+cutoff_nTreg=mean(TIL_data$nTreg)
+cutoff_MAIT=mean(TIL_data$MAIT)
+
+for (i in 1:nrow(TIL_data)) {
+  if(TIL_data$Tr1[i]>=cutoff_Tr1){
+    TIL_data$Tr1[i]="high"
+  }else {
+    TIL_data$Tr1[i]="low"
+  }
+  
+  if(TIL_data$nTreg[i]>=cutoff_nTreg){
+    TIL_data$nTreg[i]="high"
+  }else {
+    TIL_data$nTreg[i]="low"
+  }
+
+  if(TIL_data$MAIT[i]>=cutoff_MAIT){
+    TIL_data$MAIT[i]="high"
+  }else {
+    TIL_data$MAIT[i]="low"
+  }
+  
+  
+}
+
+
+fit <- survfit(Surv(Survival_time, Survival_status) ~ Tr1, data = TIL_data)
+pdf(file="/data/liull/immune-checkpoint-blockade/TIL/melanoma_CTLA4/Tr1.pdf")
+ggsurvplot(fit, data = TIL_data, pval = TRUE,risk.table = TRUE,risk.table.col = "strata")
+dev.off()#0.0009
+
+# fit <- survfit(Surv(Survival_time, Survival_status) ~ nTreg, data = TIL_data)
+# pdf(file="/data/liull/immune-checkpoint-blockade/TIL/melanoma_CTLA4/nTreg.pdf")
+# ggsurvplot(fit, data = TIL_data, pval = TRUE,risk.table = TRUE,risk.table.col = "strata")
+# dev.off()# 0.095
+
+fit <- survfit(Surv(Survival_time, Survival_status) ~ MAIT, data = TIL_data)
+pdf(file="/data/liull/immune-checkpoint-blockade/TIL/melanoma_CTLA4/MAIT.pdf")
+ggsurvplot(fit, data = TIL_data, pval = TRUE,risk.table = TRUE,risk.table.col = "strata")
+dev.off() #0.048
+

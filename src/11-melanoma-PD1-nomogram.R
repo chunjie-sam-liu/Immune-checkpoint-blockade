@@ -6,11 +6,16 @@ read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/mel
            header = T,as.is = TRUE)->NR_orangered4_class
 read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_white_class.txt",
            header = T,as.is = TRUE)->NR_white_class
-# read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/8_gene_class.txt",
-#            header = T,as.is = TRUE)->eight_gene_class
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/8_gene_class.txt",
+           header = T,as.is = TRUE)->eight_gene_class
+read.table("/data/liull/immune-checkpoint-blockade/TIL/melanoma_PD1/TIL_classify.txt",
+           header = T,as.is = TRUE) %>% dplyr::select(Run,Tr1)-> Tr1_class
+
 merge(R_skyblue3_class,NR_midnightblue_class)%>%
   merge(NR_orangered4_class)%>%
-  merge(NR_white_class)->all_class
+  merge(NR_white_class) %>%
+  merge(Tr1_class)%>%
+  merge(eight_gene_class)->all_class
 
 all_class%>%
   dplyr::filter(Response != "NE")->all_class
@@ -36,7 +41,7 @@ f_psm <- psm(Surv(Survival_time,Survival_status) ~
                R_skyblue3_class +
                NR_midnightblue_class + 
                NR_orangered4_class + 
-               NR_white_class, 
+               NR_white_class + Tr1 + eight_gene_class, 
              data=all_class, x=T, y=T, dist='lognormal',time.inc=365)
 med  <- Quantile(f_psm)
 surv <- Survival(f_psm)  # This would also work if f was from cph
@@ -61,7 +66,8 @@ f_cph <- cph(Surv(Survival_time,Survival_status) ~
                R_skyblue3_class +
                NR_midnightblue_class +
                NR_orangered4_class +
-               NR_white_class,
+               NR_white_class +
+               Tr1,
              data=all_class,surv=TRUE,x=TRUE, y=TRUE,time.inc=365)
 
 surv <- Survival(f_cph)
@@ -119,7 +125,7 @@ all_class$Response=as.numeric(all_class$Response)
 ddist <- datadist(all_class)
 options(datadist='ddist')
 
-fit <- lrm(Response ~ NR_midnightblue_class + R_skyblue3_class + NR_orangered4_class + NR_white_class,
+fit <- lrm(Response ~ NR_midnightblue_class +  NR_white_class + Tr1 + eight_gene_class,
            data=all_class,x=TRUE,y=TRUE)
 
 
@@ -133,5 +139,5 @@ dev.off()
 rcorrcens(Response ~ predict(fit), data =  all_class)
 # Somers' Rank Correlation for Censored Data    Response variable:Response
 # 
-#                 C   Dxy  aDxy    SD    Z      P  n
-# predict(fit) 0.69 0.381 0.381 0.126 3.02 0.0026 75
+#                  C   Dxy  aDxy    SD   Z P  n
+# predict(fit) 0.789 0.578 0.578 0.109 5.3 0 75
