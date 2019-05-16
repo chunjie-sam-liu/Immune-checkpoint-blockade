@@ -1,4 +1,5 @@
 library(magrittr) # pipe
+library(purrr)
 library(DESeq2) # rse Ranged SummarizedExperiments
 library(mlr) # machine learning wrapper
 library(caret) # machine learning solution packages
@@ -8,32 +9,58 @@ library(mRMRe) # mutual information
 library(PCAtools) # PCA plot datasets
 library(VennDiagram) # veendiagram
 library(propagate) # big matrix correlation
-library(biglasso) # big matrix lasso and elastic net
+library(biglasso) # big
 
-#filter gastric cancer,RNA-seq,anti-PD1,pretreatment metadata -------------
+setwd("/data/liull/immune-checkpoint-blockade/machine_learning/")
+
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1_pretreatment_Symbol_count_expr.txt",sep="\t",header = T,as.is = TRUE) %>%
+  dplyr::select(metadata$Run)->melanoma_PD1_count_expr
 readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="SRA") %>%
   dplyr::filter(Library_strategy=="RNA-Seq") %>%
   dplyr::filter(Cancer=="melanoma") %>%
   dplyr::filter(Anti_target=="anti-PD1") %>%
   dplyr::filter(Biopsy_Time=="pre-treatment")%>%
-  dplyr::select(SRA_Study,Run,Response) ->metadata
-data.frame(Response=metadata$Response,batch=metadata$SRA_Study,row.names = metadata$Run)->Condition
+  dplyr::select(SRA_Study,Run,Response) %>%
+  dplyr::filter(Response !="NE")->metadata
+data.frame(Response=metadata$Response,row.names = metadata$Run)->Condition
 Condition$Response %>%
   gsub("CR","R",.)%>%
   gsub("PR","R",.)%>%
   gsub("SD","NR",.)%>%
   gsub("PD","NR",.)->Condition$Response
-Condition$batch %>%
-  gsub("SRP070710",1,.)%>%
-  gsub("SRP150548",2,.)%>%
-  gsub("SRP094781",3,.)->Condition$batch
+melanoma.se <- SummarizedExperiment(assays = as.matrix(melanoma_PD1_count_expr), 
+                                    colData = Condition)
+readr::write_rds(x = melanoma.se, path = '/data/liull/immune-checkpoint-blockade/machine_learning/melanoma_PD1.se.rds.gz', compress = 'gz')
+
+All_projects=c("SRP070710","SRP150548","SRP094781")
+
+All_projects %>%
+  purrr::map(
+    .f = function(.x){
+      
+      project=.x
+      metadata %>% dplyr::filter(SRA_Study == project) ->Single_metadata
+      melanoma_PD1_count_expr %>%
+        dplyr::select(Single_metadata$Run)->Single_count_expr
+      data.frame(Response=Single_metadata$Response,row.names = Single_metadata$Run)->Single_Condition
+      Single_Condition$Response %>%
+        gsub("CR","R",.) %>%
+        gsub("PR","R",.) %>%
+        gsub("SD","NR",.) %>%
+        gsub("PD","NR",.) ->Single_Condition$Response
+      Single.se <- SummarizedExperiment(assays = as.matrix(Single_count_expr), 
+                                        colData = Single_Condition)
+      readr::write_rds(x = Single.se, path = paste("/data/liull/immune-checkpoint-blockade/machine_learning/",project,".se.rds.gz",sep = ""), compress = 'gz')
+      
+    }
+    
+    
+  )
+SRP070710.se=readr::read_rds(path = "/data/liull/immune-checkpoint-blockade/machine_learning/SRP070710.se.rds.gz")
+SRP150548.se=readr::read_rds(path = "/data/liull/immune-checkpoint-blockade/machine_learning/SRP150548.se.rds.gz")
+SRP094781.se=readr::read_rds(path = "/data/liull/immune-checkpoint-blockade/machine_learning/SRP094781.se.rds.gz")
 
 #make difference----------------------------
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1_pretreatment_Symbol_count_expr.txt",
-           sep="\t",header = T,as.is = TRUE) ->melanoma_PD1_count_expr
-melanoma.se <- SummarizedExperiment(assays = as.matrix(melanoma_PD1_count_expr), 
-                                 colData = Condition)#,design= ~ Response + batch
-# readr::write_rds(x = melanoma.se, path = '/data/liull/immune-checkpoint-blockade/melanoma_PD1.se.rds.gz', compress = 'gz')
 
 fn_se2data.frame <- function(.se) { 
   .df <- as.data.frame(t(assay(.se))) 
@@ -46,9 +73,9 @@ fn_se2data.frame <- function(.se) {
 fn_save_se2matrix <- function(.se.name, .df) {
   .filename <- glue::glue('{gsub(".se", "", .se.name)}_{ncol(.df[, -1])}.mat.tsv')
   .mat <- as.matrix(.df[, -1])
-  write.table(x = .mat, file = file.path('/data/liull/immune-checkpoint-blockade/machine_learning/', .filename), sep = '\t')
-  if (file.exists(.filename)) file.remove(.filename)
-  file.symlink(from = file.path('data', .filename), to = .filename)
+  write.table(x = .mat, file = file.path("/data/liull/immune-checkpoint-blockade/machine_learning/", .filename), sep = '\t')
+  # if (file.exists(.filename)) file.remove(.filename)
+  # file.symlink(from = file.path('C:/Users/000/Desktop/ICB_expr/feature_selection/', .filename), to = .filename)
 }
 fn_load_big.matrix <- function(.se.name, .df) {
   .ds <- glue::glue('{gsub(".se", "", .se.name)}_{ncol(.df[, -1])}')
@@ -76,7 +103,7 @@ fn_lasso_feats <- function(.se.name, .df) {
   .lassofit <- cv.biglasso(
     X = .X, y = .y, penalty = 'enet',
     family = 'binomial', screen = 'SSR', alpha = 0.1,
-    seed = 1234, ncores = 10, nfolds = 10
+    seed = 1234, ncores = 5
   )
   .coef <- coef(.lassofit)[which(coef(.lassofit) != 0), ][-1]
   names(sort(x = abs(.coef), decreasing = T))
@@ -107,6 +134,29 @@ fn_select_features <- function(.se.name) {
 }
 
 melanoma.feats <- fn_select_features(.se.name = "melanoma.se")
+SRP070710.feats <- fn_select_features(.se.name = "SRP070710.se")
+SRP150548.feats <- fn_select_features(.se.name = "SRP150548.se")
+SRP094781.feats <- fn_select_features(.se.name = "SRP094781.se")
+
+
+fn_resample <- function(.se, .id) {
+  .d <- cbind(t(assay(.se)), as.data.frame(colData(.se)[, 'class', drop = FALSE]))
+  .task <- makeClassifTask(
+    id = .id, data = .d,
+    target = 'class', positive = 'M'
+  )
+  ksvm.lrn <- makeLearner(cl = 'classif.ksvm', predict.type = 'prob')
+  resamdesc.inner <- makeResampleDesc(method = 'CV', iters = 10, stratify = TRUE, predict = 'both')
+  resample(
+    learner = ksvm.lrn,
+    task = .task,
+    resampling = resamdesc.inner,
+    measures = mlr::auc,
+    models = TRUE,
+    keep.pred = TRUE
+  )
+}
+fn_resample(.se = total816.se[total816.feats, ], .id = 'total816')
 
 # doparallel --------------------------------------------------------------
 
@@ -156,24 +206,6 @@ fn_draw_venn <- function(.list){
 
 # For feature selection
 
- 
-fn_sd_median <- function(.df) {
-  .sd <- apply(
-    X = .df[, -1],
-    MARGIN = 2,
-    FUN = sd
-  )
-  .median <- apply(
-    X = .df[, -1],
-    MARGIN = 2,
-    FUN = median
-  )
-  intersect(
-    names(.sd[.sd > 0]),
-    names(.median[.median > 0])
-  ) -> .feats.sd.median
-  .feats.sd.median
-}
 
 
 
