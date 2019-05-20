@@ -224,6 +224,13 @@ Multi_cox <- coxph(Surv(Survival_time, Survival_status) ~ R_skyblue3 + NR_midnig
 # NR_white Concordance= 0.642  
 
 
+# Combined_data %>%
+#   dplyr::select(Run,Survival_time,Age,as.character(selected_modules$module)) %>%
+#   merge(metadata,.)->cox_selected
+# write.table(cox_selected,
+#             "/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/all_cox_selected.txt",
+#             col.names = TRUE,row.names = FALSE,quote=FALSE,sep = "\t")
+
 Combined_data %>%
   dplyr::select(Run,Survival_time,Survival_status,as.character(selected_modules[10,1]))%>%
   dplyr::mutate(Class=rep("class",nrow(Combined_data)))-> Combined_module_1
