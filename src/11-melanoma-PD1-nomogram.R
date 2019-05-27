@@ -20,7 +20,6 @@ merge(R_skyblue3_class,NR_midnightblue_class)%>%
 all_class%>%
   dplyr::filter(Response != "NE")->all_class
 
-
 #Survival_time,Survival_status ~ modules---------------------------------------------------
 for (i in 1:nrow(all_class)) {
   if(all_class$Survival_status[i]=="Dead"){
@@ -84,7 +83,7 @@ dev.off()
 
 #actual ~ predict
 rcorrcens(Surv(Survival_time,Survival_status) ~ predict(f_psm), data =  all_class)#0.811
-rcorrcens(Surv(Survival_time,Survival_status) ~ predict(f_cph), data =  all_class)#0.187
+1-rcorrcens(Surv(Survival_time,Survival_status) ~ predict(f_cph), data =  all_class)#0.187
 # rcorrcens(Surv(Survival_time,Survival_status) ~ predict(f_psm), data =  all_class)#NR~R 0.789
 # rcorrcens(Surv(Survival_time,Survival_status) ~ predict(f_cph), data =  all_class)#NR~R 0.211
 
@@ -132,7 +131,7 @@ fit <- lrm(Response ~ NR_midnightblue_class +  NR_white_class + Tr1 + eight_gene
 nom <- nomogram(fit, fun=plogis,  # or fun=plogis
                 funlabel="Possibility of Response")
 jpeg('/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/R_NR_nomogram.jpeg',
-     width = 800, height = 800, units = "px", pointsize = 12,quality = 100,bg = "#e5ecff",res=100)
+     width = 1000, height = 800, units = "px", pointsize = 12,quality = 100,bg = "#e5ecff",res=100)
 plot(nom, xfrac=.45)
 dev.off()
 

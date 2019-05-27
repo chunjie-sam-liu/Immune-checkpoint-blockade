@@ -1,7 +1,7 @@
 #WGCNA for melanoma PD1
-library(WGCNA)
+#library(WGCNA)
 library(magrittr)
-enableWGCNAThreads(nThreads =20 )
+#enableWGCNAThreads(nThreads =20 )
 #prepared data traits----------------------------------------------------------------------------
 readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_available.xlsx",col_names = TRUE,sheet="SRA") %>%
   dplyr::filter(Library_strategy=="RNA-Seq") %>%
@@ -9,48 +9,38 @@ readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_availabl
   dplyr::filter(Anti_target=="anti-PD1") %>%
   dplyr::filter(Biopsy_Time=="pre-treatment")%>%
   dplyr::select(Run,Response)%>%
-  as.data.frame()->melanoma_PD1#85 samples
-dplyr::filter(melanoma_PD1,Response %in% c("CR","PR","R"))->response#26
-dplyr::filter(melanoma_PD1,Response %in% c("PD","SD","NR"))->non_response#59
+  dplyr::filter(Response != "NE")->melanoma_PD1_metadata#85 samples
+
+melanoma_PD1_metadata$Response %>%
+  gsub("CR","R",.)%>%
+  gsub("PR","R",.)%>%
+  gsub("SD","NR",.)%>%
+  gsub("PD","NR",.)->melanoma_PD1_metadata$Response
+# dplyr::filter(melanoma_PD1_metadata,Response %in% c("CR","PR","R"))->response#26
+# dplyr::filter(melanoma_PD1_metadata,Response %in% c("PD","SD","NR"))->non_response#59
  
 
 
 #prepared data expr------------------------------------------------------------------------------
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/PD1_removed_batch_expression.txt",header = T,as.is = TRUE) ->all_expression
-read.table("/data/liull/reference/EntrezID_Symbl_EnsemblID_NCBI.txt",header = T,as.is = TRUE,sep="\t") -> relationship
-
-
-tibble::rownames_to_column(all_expression) %>%
-  dplyr::select(rowname,melanoma_PD1$Run)%>%
-  dplyr::filter(rowname %in% relationship$Ensembl_ID) %>%
-  merge(relationship,.,by.x="Ensembl_ID",by.y="rowname")%>%
-  dplyr::select(-Ensembl_ID,-GeneID)->melanoma_PD1_expr0  #symbol-PD1-pretreatment-log2CPM-expr
-dim(melanoma_PD1_expr0)
-
-factors=factor(melanoma_PD1_expr0$Symbol)
-merged_expression=tapply(melanoma_PD1_expr0[,2],factors,median)
-for (i in 3:ncol(melanoma_PD1_expr0)) {
-  temp=tapply(melanoma_PD1_expr0[,i],factors,median)
-  merged_expression=cbind(merged_expression,temp)
-}
-colnames(merged_expression)=colnames(melanoma_PD1_expr0)[2:ncol(melanoma_PD1_expr0)]  #trans ensembl id to symbol and merged
-dim(merged_expression)
-
-keep <- rowSums(merged_expression>0) >= 2
-melanoma_PD1_expr1 <- merged_expression[keep,]  #keep the gene has more than 2 CPM>2's sample 
-dim(melanoma_PD1_expr1)
-write.table(melanoma_PD1_expr1,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/pre_PD1_filtered_symbol_expr.txt",row.names = TRUE,col.names = TRUE,quote=FALSE,sep="\t")
-#only the gene has Ensembl id in NCBI_relationship(the one has no ensembl is meaningless,Gene type:pseudo or other)
-dplyr::select(as.data.frame(melanoma_PD1_expr1,stringsAsFactors=FALSE),response$Run)->expr_R
-  # t()%>%
-  # as.data.frame(stringsAsFactors=FALSE)->expr_R
-dplyr::select(as.data.frame(melanoma_PD1_expr1,stringsAsFactors=FALSE),non_response$Run)->expr_NR
-
-  # t()%>%
-  # as.data.frame(stringsAsFactors=FALSE)->expr_NR#prepare for WGCNA
-
-write.table(expr_R,"/data/liull/test2/expr_R.txt",row.names = TRUE,col.names = TRUE,quote=FALSE,sep="\t")
-write.table(expr_NR,"/data/liull/test2/expr_NR.txt",row.names = TRUE,col.names = TRUE,quote=FALSE,sep="\t")
+# read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1_pretreatment_Symbol_log2CPM_expr.txt",
+#            header = T,as.is = TRUE) %>% dplyr::select(melanoma_PD1_metadata$Run)->melanoma_PD1_pretreatment_Symbol_log2CPM_expr
+# colnames(melanoma_PD1_pretreatment_Symbol_log2CPM_expr)[sample(1:85,size=51)]->train_samples
+# setdiff(colnames(melanoma_PD1_pretreatment_Symbol_log2CPM_expr),train_samples)->test_samples
+# 
+# melanoma_PD1_metadata %>% 
+#   dplyr::filter(Run %in% train_samples) %>% 
+#   dplyr::filter(Response == "R")->train_samples_R
+# melanoma_PD1_metadata %>% 
+#   dplyr::filter(Run %in% train_samples) %>% 
+#   dplyr::filter(Response == "NR")->train_samples_NR
+# 
+# 
+# dplyr::select(melanoma_PD1_pretreatment_Symbol_log2CPM_expr,train_samples_R$Run)->train_samples_R_expr
+# dplyr::select(melanoma_PD1_pretreatment_Symbol_log2CPM_expr,train_samples_NR$Run)->train_samples_NR_expr
+# write.table(train_samples_R_expr,"/data/liull/immune-checkpoint-blockade/coexpress_modules/test_WGCNA_R/train_R/train_samples_R_expr.txt",
+#             row.names = TRUE,col.names = TRUE,quote=FALSE,sep="\t")
+# write.table(train_samples_NR_expr,"/data/liull/immune-checkpoint-blockade/coexpress_modules/test_WGCNA_NR/train_NR/train_samples_NR_expr.txt",
+#             row.names = TRUE,col.names = TRUE,quote=FALSE,sep="\t")
 
 
 #WGCNA3.r expr_R.txt 0.85 30 0.25
