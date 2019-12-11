@@ -4,8 +4,8 @@ library(magrittr)
 read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/score_with_TF/Homo_sapiens_TF",header = T,as.is = TRUE,sep="\t")%>%
   dplyr::select(Symbol)->human_TF
 
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/pre_PD1_filtered_symbol_expr.txt",header = T,as.is = TRUE)->pre_PD1_expr
-tibble::rownames_to_column(pre_PD1_expr)%>%
+read.table("/data/liull/immune-checkpoint-blockade/coexpress_modules/SRP094781_Symbol_FPKM_expr.txt",header = T,as.is = TRUE)->SRP094781_expr
+tibble::rownames_to_column(SRP094781_expr)%>%
   dplyr::filter(rowname %in% human_TF$Symbol)->TF_expr
 rownames(TF_expr)=TF_expr$rowname
 TF_expr=TF_expr[,-1]
@@ -20,6 +20,7 @@ readxl::read_excel("/data/liull/immune-checkpoint-blockade/all_metadata_availabl
   dplyr::filter(Anti_target=="anti-PD1") %>%
   dplyr::filter(Survival_time != "NA")%>%
   dplyr::filter(Biopsy_Time=="pre-treatment")%>%###
+  dplyr::filter(SRA_Study == "SRP094781") %>%
   dplyr::select(Run,Response,Survival_time,Survival_status,Age,Gender) ->metadata
 
 Combined_data=merge(metadata[,c(1,3,4,5,6)],t_TF_expr)
@@ -50,7 +51,7 @@ Combined_data$Gender=as.numeric(Combined_data$Gender)
 gsub("-", "_",colnames(Combined_data))->colnames(Combined_data)
   
 #Univariate Cox regression
-covariates <- colnames(Combined_data)[-c(1,2,3)]
+covariates <- colnames(Combined_data)[-c(1,2,3,4,5)]
 
 univ_formulas <- sapply(covariates,
                         function(x) as.formula(paste('Surv(Survival_time, Survival_status)~',x)))
@@ -87,21 +88,9 @@ filter_res %>%
 write.table(TF_symbol,"/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/score_with_TF/TF_symbol.txt",quote = FALSE,col.names = TRUE,row.names = FALSE)
 
 #TF-target in modules----------------------------------------------------------------------------------------------------------------------------------------------------------------
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/score_with_TF/TF_symbol.txt",header = T,as.is = TRUE)->TF_symbol
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_white.txt",header = F,as.is = TRUE)->NR_white#0 interaction
-colnames(NR_white)="module_genes"
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_orangered4.txt",header = F,as.is = TRUE)->NR_orangered4#0 TF
-colnames(NR_orangered4)="module_genes"
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/NR_midnightblue.txt",header = F,as.is = TRUE)->NR_midnightblue#*****
-colnames(NR_midnightblue)="module_genes"
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/melanoma_PD1/survival/modules/WGCNA/R_skyblue3.txt",header = F,as.is = TRUE)->R_skyblue3#0 interaction
-colnames(R_skyblue3)="module_genes"
 
 
-read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/score_with_TF/chip_tf_to_coding_gene.txt",header = T,sep="\t",as.is = TRUE)->TF_targets
-
-dplyr::filter(TF_symbol,gene_symbol %in% NR_midnightblue$module_genes)->TFs_in_module
-dim(TFs_in_module)
+dim(TFs_in_black)
 dplyr::mutate(NR_midnightblue,target=rep("NA",nrow(NR_midnightblue)))->NR_midnightblue
 
 Targets_relationship=data.frame()
@@ -157,8 +146,111 @@ for (i in 1:nrow(TFs_in_module)) {
 
 
 
+#new
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/score_with_TF/Homo_sapiens_TF",
+           header = T,as.is = TRUE,sep="\t")->all_TF
+read.table("/data/liull/immune-checkpoint-blockade/coexpress_modules/test_WGCNA_R/SRP094781/nomogram/NR_black_genes.txt",
+           header = F,as.is = TRUE,sep="\t")->black_genes
+read.table("/data/liull/immune-checkpoint-blockade/coexpress_modules/test_WGCNA_R/SRP094781/nomogram/NR_ivory_genes.txt",
+           header = F,as.is = TRUE,sep="\t")->ivory_genes
+
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/score_with_TF/chip_tf_to_coding_gene.txt",header = T,sep="\t",as.is = TRUE)->TF_targets
+
+dplyr::filter(all_TF,Symbol %in% black_genes$V1)->TFs_in_black
+
+TF_targets %>%
+  dplyr::filter(TF %in% TFs_in_black$Symbol) %>%
+  dplyr::select(TF,target)->black_TF_targets_1
+
+TF_targets %>%
+  dplyr::filter(target %in% TFs_in_black$Symbol) %>%
+  dplyr::select(target,TF)->black_TF_targets_2
+colnames(black_TF_targets_2)=c("TF","target")
+rbind(black_TF_targets_1,black_TF_targets_2) %>%
+  unique()->black_TF_targets
+
+
+# for (i in 1:nrow(TFs_in_black)) {
+#   black_TF_targets %>%
+#     dplyr::filter(TF == TFs_in_black$Symbol[i])->one_TF_targets
+#   # if(nrow(one_TF_targets)==0){
+#   #   black_TF_targets %>%
+#   #     dplyr::filter(target == TFs_in_black$Symbol[i])->one_TF_targets
+#   # }
+#   
+#   Num=length(intersect(one_TF_targets$target,black_genes$V1))
+#   print(Num)
+#   }
+  
+  
+
+
+for (i in 1:nrow(TFs_in_black)) {
+  black_TF_targets %>%
+    dplyr::filter(TF == TFs_in_black$Symbol[i])->one_TF_targets
+  if(nrow(one_TF_targets)==0){
+    black_TF_targets %>%
+      dplyr::filter(target == TFs_in_black$Symbol[i])->one_TF_targets
+  }
+  
+  Num=length(intersect(one_TF_targets$target,black_genes$V1))
+  if(Num > 90){
+    TFs_in_black$Symbol[i] -> TF_signif
+    write.table(intersect(one_TF_targets$target,black_genes$V1),
+                paste("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/score_with_TF/black_",TF_signif,".txt",sep = ""),
+                row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
+  }
+  
+  
+}
 
 
 
+dplyr::filter(all_TF,Symbol %in% ivory_genes$V1)->TFs_in_ivory
+
+TF_targets %>%
+  dplyr::filter(target %in% TFs_in_ivory$Symbol) %>%
+  dplyr::select(TF,target)->ivory_TF_targets
+
+for (i in 1:nrow(TFs_in_ivory)) {
+  ivory_TF_targets %>%
+    dplyr::filter(target == TFs_in_ivory$Symbol[i])->one_TF_targets
+  if(nrow(one_TF_targets)==0){
+    ivory_TF_targets %>%
+      dplyr::filter(TF == TFs_in_ivory$Symbol[i])->one_TF_targets
+  }
+  
+  Num=length(intersect(one_TF_targets$TF,black_genes$V1))
+  if(Num > 90){
+    TFs_in_ivory$Symbol[i] -> TF_signif
+    write.table(intersect(one_TF_targets$target,black_genes$V1),
+                paste("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/score_with_TF/black_",TF_signif,".txt",sep = ""),
+                row.names = FALSE,col.names = FALSE,quote=FALSE,sep="\t")
+  }
+  
+  
+}
+
+# 1,5,1,4
+
+
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/score_with_TF/black_BHLHE40.txt",
+           header = F,as.is = TRUE,sep="\t")->black_BHLHE40
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/score_with_TF/black_RCOR1.txt",
+           header = F,as.is = TRUE,sep="\t")->black_RCOR1
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/score_with_TF/black_SMAD4.txt",
+           header = F,as.is = TRUE,sep="\t")->black_SMAD4
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/score_with_TF/black_TFAP2C.txt",
+           header = F,as.is = TRUE,sep="\t")->black_TFAP2C
+read.table("/data/liull/immune-checkpoint-blockade/New_batch_effect_pipeline/score_with_TF/black_TFDP1.txt",
+           header = F,as.is = TRUE,sep="\t")->black_TFDP1
+
+union(black_BHLHE40$V1,black_RCOR1$V1) %>%
+  union(black_SMAD4$V1) %>% 
+  union(black_TFAP2C$V1) %>%
+  union(black_TFDP1$V1) %>%
+  union(c("BHLHE40","RCOR1","SMAD4","TFAP2C","TFDP1"))->all_targets
+list(all_targets) ->TF_targets_list[1]
+names(TF_targets_list)="balck_TF"
 
 

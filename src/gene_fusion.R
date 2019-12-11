@@ -17,14 +17,15 @@ dplyr::filter(metadata,Response %in% c("SD","PD","NR")) -> non_response#
 for (i in 1:nrow(response)) {
   list.files(path = path_data, pattern = response$Run[i], recursive = TRUE, full.names = TRUE)%>% 
     readr::read_tsv()  %>% 
-    dplyr::select(GeneName1,GeneName2,fusiontype,GeneExpr1,GeneExpr2,GeneExpr_Fused,EricScore)-> filtered_pair
-  apply(filtered_pair, 1, function(x) paste(x[1],x[2], sep = "_", collapse = NULL))->key
-  dplyr::mutate(filtered_pair,key=key)->filtered_pair
+    dplyr::select(GeneName1,GeneName2,fusiontype,GeneExpr1,GeneExpr2,GeneExpr_Fused,EricScore)%>%
+    dplyr::mutate(Pairs=paste(GeneName1,GeneName2,sep = "_"))-> filtered_pair
+  # apply(filtered_pair, 1, function(x) paste(x[1],x[2], sep = "_", collapse = NULL))->key
+  # dplyr::mutate(filtered_pair,key=key)->filtered_pair
   #print(nrow(filtered_pair))
   if(i==1){
-    intersection=filtered_pair$key
+    intersection=filtered_pair$Pairs
   }else{
-    intersection=intersect(filtered_pair$key,intersection) 
+    intersection=intersect(filtered_pair$Pairs,intersection) 
   }
   
 }
